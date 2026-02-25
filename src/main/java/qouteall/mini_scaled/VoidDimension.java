@@ -1,7 +1,5 @@
 package qouteall.mini_scaled;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
@@ -23,6 +21,8 @@ import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.flat.FlatLayerInfo;
 import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorSettings;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import qouteall.imm_ptl.core.McHelper;
 import qouteall.q_misc_util.api.DimensionAPI;
 
@@ -75,7 +75,7 @@ public class VoidDimension {
         return McHelper.getServerWorld(dimensionId);
     }
     
-    @Environment(EnvType.CLIENT)
+    @OnlyIn(Dist.CLIENT)
     public static class VoidSkyProperties extends DimensionSpecialEffects {
         public VoidSkyProperties() {
             super(Float.NaN, true, DimensionSpecialEffects.SkyType.NORMAL, false, false);

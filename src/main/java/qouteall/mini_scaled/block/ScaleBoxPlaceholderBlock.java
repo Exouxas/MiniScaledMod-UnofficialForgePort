@@ -1,12 +1,6 @@
 package qouteall.mini_scaled.block;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
@@ -19,6 +13,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.Nullable;
 import qouteall.imm_ptl.core.IPGlobal;
 import qouteall.mini_scaled.ClientScaleBoxInteractionControl;
@@ -33,11 +29,7 @@ public class ScaleBoxPlaceholderBlock extends BaseEntityBlock {
     );
     
     public static void init() {
-        Registry.register(
-            BuiltInRegistries.BLOCK,
-            new ResourceLocation("mini_scaled", "scale_box_placeholder"),
-            ScaleBoxPlaceholderBlock.instance
-        );
+        // Registration is handled by MiniScaledRegistries via DeferredRegister.
     }
     
     private ScaleBoxPlaceholderBlock(Properties settings) {
@@ -52,7 +44,7 @@ public class ScaleBoxPlaceholderBlock extends BaseEntityBlock {
         return RenderShape.INVISIBLE;
     }
     
-    @Environment(EnvType.CLIENT)
+    @OnlyIn(Dist.CLIENT)
     public float getShadeBrightness(BlockState state, BlockGetter world, BlockPos pos) {
         return 1.0F;
     }

@@ -1,9 +1,6 @@
 package qouteall.mini_scaled.block;
 
-import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -29,14 +26,8 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
     public static BlockEntityType<ScaleBoxPlaceholderBlockEntity> blockEntityType;
     
     public static void init() {
-        blockEntityType = Registry.register(
-            BuiltInRegistries.BLOCK_ENTITY_TYPE,
-            "mini_scaled:placeholder_block_entity",
-            FabricBlockEntityTypeBuilder.create(
-                ScaleBoxPlaceholderBlockEntity::new,
-                ScaleBoxPlaceholderBlock.instance
-            ).build()
-        );
+        // Registration is handled by MiniScaledRegistries via DeferredRegister.
+        // blockEntityType is assigned in FMLCommonSetupEvent.
     }
     
     public ScaleBoxPlaceholderBlockEntity(BlockPos blockPos, BlockState blockState) {

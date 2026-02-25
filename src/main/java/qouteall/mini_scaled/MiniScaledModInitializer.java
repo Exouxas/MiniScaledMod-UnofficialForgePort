@@ -2,15 +2,8 @@ package qouteall.mini_scaled;
 
 import me.shedaniel.autoconfig.AutoConfig;
 import me.shedaniel.autoconfig.serializer.GsonConfigSerializer;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -19,14 +12,26 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.server.ServerStartedEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qouteall.imm_ptl.core.IPGlobal;
-import qouteall.imm_ptl.core.commands.PortalCommand;
-import qouteall.mini_scaled.block.BoxBarrierBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity;
 import qouteall.mini_scaled.config.MiniScaledConfig;
+import qouteall.mini_scaled.config.MiniScaledConfigMenu;
 import qouteall.mini_scaled.item.ManipulationWandItem;
 import qouteall.mini_scaled.item.ScaleBoxEntranceItem;
 import qouteall.q_misc_util.LifecycleHack;
@@ -34,49 +39,31 @@ import qouteall.q_misc_util.MiscHelper;
 import qouteall.q_misc_util.api.DimensionAPI;
 import qouteall.q_misc_util.my_util.LimitedLogger;
 
-public class MiniScaledModInitializer implements ModInitializer {
+@Mod("mini_scaled")
+public class MiniScaledModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger(MiniScaledModInitializer.class);
     private static final LimitedLogger LIMITED_LOGGER = new LimitedLogger(50);
     
-    @Override
-    public void onInitialize() {
+    public MiniScaledModInitializer() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         
-        DimensionAPI.serverDimensionsLoadEvent.register(VoidDimension::initializeVoidDimension);
-        LifecycleHack.markNamespaceStable("mini_scaled");
+        // Register deferred registries
+        MiniScaledRegistries.register(modEventBus);
         
-        ScaleBoxPlaceholderBlock.init();
+        // Mod lifecycle events (fire during mod loading)
+        modEventBus.addListener(this::onCommonSetup);
+        modEventBus.addListener(this::onBuildCreativeTab);
         
-        BoxBarrierBlock.init();
+        // Game events (fire during gameplay)
+        MinecraftForge.EVENT_BUS.addListener(this::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(this::onRightClickBlock);
+        MinecraftForge.EVENT_BUS.addListener(this::onRegisterCommands);
+        MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         
-        ScaleBoxPlaceholderBlockEntity.init();
-        
-        MiniScaledPortal.init();
-        
-        ScaleBoxEntranceItem.init();
-        
-        ManipulationWandItem.init();
-        
-        ScaleBoxEntranceCreation.init();
-        
-        IPGlobal.enableDepthClampForPortalRendering = true;
-        
-        ServerTickEvents.END_SERVER_TICK.register(FallenEntityTeleportaion::teleportFallenEntities);
-        
-        UseBlockCallback.EVENT.register((Player player, Level world, InteractionHand hand, BlockHitResult hitResult) -> {
-            Block block = world.getBlockState(hitResult.getBlockPos()).getBlock();
-            if (block == ScaleBoxPlaceholderBlock.instance) {
-                return ScaleBoxManipulation.onHandRightClickEntrance(player, world, hand, hitResult);
-            }
-            
-            return InteractionResult.PASS;
-        });
-        
-        // config
+        // Register config
         MSGlobal.config = AutoConfig.register(MiniScaledConfig.class, GsonConfigSerializer::new);
-        ServerLifecycleEvents.SERVER_STARTED.register(s -> {
-            MiniScaledConfig config = AutoConfig.getConfigHolder(MiniScaledConfig.class).getConfig();
-            applyConfigServerSide(config);
-        });
+        
+        // Config save listener
         AutoConfig.getConfigHolder(MiniScaledConfig.class).registerSaveListener((configHolder, config) -> {
             if (MiscHelper.getServer() != null) {
                 applyConfigServerSide(config);
@@ -85,17 +72,78 @@ public class MiniScaledModInitializer implements ModInitializer {
             return InteractionResult.PASS;
         });
         
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES)
-            .register(entries -> {
-                ManipulationWandItem.registerCreativeInventory(entries::accept);
-                ScaleBoxEntranceItem.registerCreativeInventory(entries::accept);
-            });
-        
-        CommandRegistrationCallback.EVENT.register(
-            (dispatcher, registryAccess, environment) -> MiniScaledCommand.register(dispatcher)
-        );
+        // Register client-side events (only on client)
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            MiniScaledModInitializerClient.registerClientEvents(modEventBus);
+        }
         
         LOGGER.info("MiniScaled Mod Initializing");
+    }
+    
+    private void onCommonSetup(FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> {
+            DimensionAPI.serverDimensionsLoadEvent.register(VoidDimension::initializeVoidDimension);
+            LifecycleHack.markNamespaceStable("mini_scaled");
+            
+            // Assign entity/block entity types from deferred register after registration
+            MiniScaledPortal.entityType = MiniScaledRegistries.getPortalEntityType();
+            ScaleBoxPlaceholderBlockEntity.blockEntityType = MiniScaledRegistries.getPlaceholderBeType();
+            
+            IPGlobal.enableDepthClampForPortalRendering = true;
+        });
+    }
+    
+    private void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            net.minecraft.server.MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                FallenEntityTeleportaion.teleportFallenEntities(server);
+            }
+        }
+    }
+    
+    private void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        Player player = event.getEntity();
+        Level world = event.getLevel();
+        BlockHitResult hitResult = event.getHitVec();
+        
+        // Handle scale box placeholder block interactions
+        Block block = world.getBlockState(hitResult.getBlockPos()).getBlock();
+        if (block == ScaleBoxPlaceholderBlock.instance) {
+            InteractionResult result = ScaleBoxManipulation.onHandRightClickEntrance(
+                player, world, event.getHand(), hitResult
+            );
+            if (result != InteractionResult.PASS) {
+                event.setCanceled(true);
+                event.setCancellationResult(result);
+                return;
+            }
+        }
+        
+        // Handle scale box creation using the configured creation item
+        InteractionResult result = ScaleBoxEntranceCreation.onRightClickBlock(
+            player, world, event.getHand(), hitResult
+        );
+        if (result != InteractionResult.PASS) {
+            event.setCanceled(true);
+            event.setCancellationResult(result);
+        }
+    }
+    
+    private void onRegisterCommands(RegisterCommandsEvent event) {
+        MiniScaledCommand.register(event.getDispatcher());
+    }
+    
+    private void onServerStarted(ServerStartedEvent event) {
+        MiniScaledConfig config = AutoConfig.getConfigHolder(MiniScaledConfig.class).getConfig();
+        applyConfigServerSide(config);
+    }
+    
+    private void onBuildCreativeTab(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
+            ManipulationWandItem.registerCreativeInventory(event::accept);
+            ScaleBoxEntranceItem.registerCreativeInventory(event::accept);
+        }
     }
     
     public static void applyConfigServerSide(MiniScaledConfig miniScaledConfig) {
@@ -121,3 +169,4 @@ public class MiniScaledModInitializer implements ModInitializer {
     
     }
 }
+

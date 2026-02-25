@@ -1,25 +1,22 @@
 package qouteall.mini_scaled;
 
 import com.mojang.datafixers.util.Pair;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import qouteall.imm_ptl.core.commands.PortalCommand;
 import qouteall.imm_ptl.core.portal.Portal;
 import qouteall.mini_scaled.config.ScaleBoxInteractionMode;
 import qouteall.mini_scaled.item.ManipulationWandItem;
 
-@Environment(EnvType.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public class ClientScaleBoxInteractionControl {
     public static final double innerInteractionDistance = 2.5;
     
     public static void init() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            update();
-        });
+        // Client tick event is registered via MiniScaledModInitializerClient.
     }
     
     private static boolean canInteractInsideScaleBox = false;
@@ -28,7 +25,7 @@ public class ClientScaleBoxInteractionControl {
         return canInteractInsideScaleBox;
     }
     
-    private static void update() {
+    public static void update() {
         canInteractInsideScaleBox = false;
         
         Minecraft client = Minecraft.getInstance();

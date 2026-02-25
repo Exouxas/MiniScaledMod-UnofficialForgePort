@@ -1,8 +1,8 @@
 package qouteall.mini_scaled.gui;
 
 import com.mojang.logging.LogUtils;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -153,7 +153,7 @@ public class ScaleBoxGuiManager {
     }
     
     public static class RemoteCallables {
-        @Environment(EnvType.CLIENT)
+        @OnlyIn(Dist.CLIENT)
         public static void tellClientToOpenGui(CompoundTag tag) {
             ScaleBoxManagementScreen.openGui(GuiData.fromTag(tag));
         }

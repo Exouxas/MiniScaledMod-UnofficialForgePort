@@ -1,8 +1,6 @@
 package qouteall.mini_scaled.item;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -34,11 +32,7 @@ public class ScaleBoxEntranceItem extends Item {
     public static final ScaleBoxEntranceItem instance = new ScaleBoxEntranceItem(new Item.Properties());
     
     public static void init() {
-        Registry.register(
-            BuiltInRegistries.ITEM,
-            new ResourceLocation("mini_scaled:scale_box_item"),
-            instance
-        );
+        // Registration is handled by MiniScaledRegistries via DeferredRegister.
     }
     
     public static class ItemInfo {

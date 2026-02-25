@@ -1,0 +1,30 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="Apache License 2.0"
+issueTrackerURL="https://github.com/Exouxas/MiniScaledMod-UnofficialForgePort/issues"
+
+[[mods]]
+    modId="mini_scaled"
+    version="${version}"
+    displayName="MiniScaled"
+    description='''
+        Create scale boxes easily using Immersive Portals functionality.
+        You can enter the scale box seamlessly without loading screen.
+    '''
+    logoFile="assets/mini_scaled/icon.png"
+    authors="qouteall"
+    [[mods.optional]]
+
+[[dependencies.mini_scaled]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.mini_scaled]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"

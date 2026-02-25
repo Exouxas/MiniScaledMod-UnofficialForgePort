@@ -1,26 +1,20 @@
 package qouteall.mini_scaled;
 
 import com.mojang.logging.LogUtils;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import org.apache.commons.lang3.Validate;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -31,8 +25,6 @@ import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock;
 import qouteall.mini_scaled.util.MSUtil;
 
 import java.util.Objects;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 public class MiniScaledPortal extends Portal {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -153,37 +145,6 @@ public class MiniScaledPortal extends Portal {
         }
     }
     
-    private static <T extends Entity> void registerEntity(
-        Consumer<EntityType<T>> setEntityType,
-        Supplier<EntityType<T>> getEntityType,
-        String id,
-        EntityType.EntityFactory<T> constructor,
-        Registry<EntityType<?>> registry
-    ) {
-        EntityType<T> entityType = FabricEntityTypeBuilder.create(
-            MobCategory.MISC,
-            constructor
-        ).dimensions(
-            new EntityDimensions(1, 1, true)
-        ).fireImmune().trackable(96, 20).build();
-        setEntityType.accept(entityType);
-        Registry.register(
-            BuiltInRegistries.ENTITY_TYPE,
-            new ResourceLocation(id),
-            entityType
-        );
-    }
-    
-    public static void init() {
-        registerEntity(
-            t -> {entityType = t;},
-            () -> entityType,
-            "mini_scaled:portal",
-            MiniScaledPortal::new,
-            BuiltInRegistries.ENTITY_TYPE
-        );
-    }
-    
     public boolean isOuterPortal() {
         return getScale() > 1;
     }
@@ -206,7 +167,7 @@ public class MiniScaledPortal extends Portal {
         
     }
     
-    @Environment(EnvType.CLIENT)
+    @OnlyIn(Dist.CLIENT)
     private void onCollidingWithEntityClientOnly(Entity entity) {
         if (isOuterPortal() && !teleportChangesScale && entity instanceof LocalPlayer) {
             Vec3 gravityVec = MSUtil.getGravityVec(entity);
@@ -251,14 +212,14 @@ public class MiniScaledPortal extends Portal {
         return velocity;
     }
     
-    @Environment(EnvType.CLIENT)
+    @OnlyIn(Dist.CLIENT)
     private void tickClient() {
     
     }
     
     private static boolean messageShown = false;
     
-    @Environment(EnvType.CLIENT)
+    @OnlyIn(Dist.CLIENT)
     private void showShiftDescendMessage() {
         if (messageShown) {
             return;
@@ -315,3 +276,4 @@ public class MiniScaledPortal extends Portal {
         return super.canTeleportEntity(entity);
     }
 }
+

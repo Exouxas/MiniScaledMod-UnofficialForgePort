@@ -1,12 +1,7 @@
 package qouteall.mini_scaled.block;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -17,6 +12,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import qouteall.imm_ptl.core.IPGlobal;
 import qouteall.mini_scaled.ClientScaleBoxInteractionControl;
 import qouteall.q_misc_util.my_util.MyTaskList;
@@ -30,11 +27,7 @@ public class BoxBarrierBlock extends Block {
     );
     
     public static void init() {
-        Registry.register(
-            BuiltInRegistries.BLOCK,
-            new ResourceLocation("mini_scaled", "barrier"),
-            BoxBarrierBlock.instance
-        );
+        // Registration is handled by MiniScaledRegistries via DeferredRegister.
     }
     
     public BoxBarrierBlock(Properties settings) {
@@ -49,7 +42,7 @@ public class BoxBarrierBlock extends Block {
         return RenderShape.INVISIBLE;
     }
     
-    @Environment(EnvType.CLIENT)
+    @OnlyIn(Dist.CLIENT)
     public float getShadeBrightness(BlockState state, BlockGetter world, BlockPos pos) {
         return 1.0F;
     }
