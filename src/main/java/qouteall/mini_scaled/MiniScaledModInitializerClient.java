@@ -1,5 +1,6 @@
 package qouteall.mini_scaled;
 
+import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.EntityRenderersEvent;
@@ -19,10 +20,13 @@ public class MiniScaledModInitializerClient {
         MinecraftForge.EVENT_BUS.addListener(MiniScaledModInitializerClient::onClientTick);
     }
     
+    @SuppressWarnings("unchecked")
     private static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        // PortalEntityRenderer extends EntityRenderer<Portal>, but MiniScaledPortal extends Portal.
+        // The cast is safe because the renderer handles all Portal subtypes.
         event.registerEntityRenderer(
             MiniScaledPortal.entityType,
-            PortalEntityRenderer::new
+            ctx -> (EntityRenderer<MiniScaledPortal>)(Object) new PortalEntityRenderer(ctx)
         );
     }
     

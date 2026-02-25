@@ -28,8 +28,13 @@ bin/
 
 *.DS_Store
 
-# fabric
+# forge run directories
 
 run/
+runs/
+
+# forge generated sources
+
+src/generated/
 
 compiler_output/

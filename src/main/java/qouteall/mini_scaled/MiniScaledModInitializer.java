@@ -36,12 +36,10 @@ import qouteall.mini_scaled.item.ScaleBoxEntranceItem;
 import qouteall.q_misc_util.LifecycleHack;
 import qouteall.q_misc_util.MiscHelper;
 import qouteall.q_misc_util.api.DimensionAPI;
-import qouteall.q_misc_util.my_util.LimitedLogger;
 
 @Mod("mini_scaled")
 public class MiniScaledModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger(MiniScaledModInitializer.class);
-    private static final LimitedLogger LIMITED_LOGGER = new LimitedLogger(50);
     
     public MiniScaledModInitializer() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
