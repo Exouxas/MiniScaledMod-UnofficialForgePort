@@ -79,6 +79,9 @@ processResources {
 	filesMatching("META-INF/mods.toml") {
 		expand "version": project.version
 	}
+
+	// Exclude Fabric-specific files
+	exclude 'fabric.mod.json'
 }
 
 tasks.withType(JavaCompile).configureEach {

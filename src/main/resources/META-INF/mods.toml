@@ -13,7 +13,6 @@ issueTrackerURL="https://github.com/Exouxas/MiniScaledMod-UnofficialForgePort/is
     '''
     logoFile="assets/mini_scaled/icon.png"
     authors="qouteall"
-    [[mods.optional]]
 
 [[dependencies.mini_scaled]]
     modId="forge"

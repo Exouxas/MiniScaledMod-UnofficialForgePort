@@ -31,7 +31,6 @@ import qouteall.imm_ptl.core.IPGlobal;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity;
 import qouteall.mini_scaled.config.MiniScaledConfig;
-import qouteall.mini_scaled.config.MiniScaledConfigMenu;
 import qouteall.mini_scaled.item.ManipulationWandItem;
 import qouteall.mini_scaled.item.ScaleBoxEntranceItem;
 import qouteall.q_misc_util.LifecycleHack;
@@ -140,7 +139,7 @@ public class MiniScaledModInitializer {
     }
     
     private void onBuildCreativeTab(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
+        if (event.getTabKey().equals(CreativeModeTabs.TOOLS_AND_UTILITIES)) {
             ManipulationWandItem.registerCreativeInventory(event::accept);
             ScaleBoxEntranceItem.registerCreativeInventory(event::accept);
         }
