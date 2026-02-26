@@ -1,58 +1,18 @@
-# Pre-warms the build environment for the GitHub Copilot Coding Agent.
-#
-# The job named "copilot-setup-steps" is picked up automatically by Copilot
-# before it starts any coding task. Steps here run once and their outputs are
-# cached so that subsequent agent sessions start with a fully-primed environment
-# (Gradle wrapper, ForgeGradle Minecraft assets, deobfuscation mappings, and all
-# declared Maven/JitPack dependencies already present).
-#
-# References:
-#   https://docs.github.com/en/copilot/customizing-copilot/customizing-the-development-environment-for-copilot-coding-agent
-
-name: Copilot Setup Steps
-
-# Automatically run the setup steps when they are changed to allow for easy
-# validation, and allow manual testing through the repository's "Actions" tab.
-on:
-  workflow_dispatch:
-  push:
-    paths:
-      - .github/workflows/copilot-setup-steps.yml
-  pull_request:
-    paths:
-      - .github/workflows/copilot-setup-steps.yml
-
+name: "Copilot Setup Steps"
+on: workflow_dispatch
 jobs:
-  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
   copilot-setup-steps:
     runs-on: ubuntu-latest
-
-    # Keep within the 59-minute maximum allowed for setup-steps jobs.
-    timeout-minutes: 59
-
     permissions:
       contents: read
-
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      # gradle/actions/setup-gradle automatically caches ~/.gradle/caches and
-      # ~/.gradle/wrapper across runs, which covers the ForgeGradle Minecraft
-      # deobfuscation caches, MCP mappings, and all downloaded Maven artifacts.
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      # Resolve and download every declared dependency (Forge, ImmersivePortals
-      # via JitPack, ClothConfig, Mixin processor) without running a full build.
-      # ForgeGradle performs its heavy one-time setup (downloading the Minecraft
-      # binary, applying MCP mappings, creating the deobfuscated compile classpath)
-      # during Gradle's configuration phase, so any task triggers it.
-      - name: Download and cache all dependencies
-        run: ./gradlew --no-daemon dependencies
+          cache: 'gradle'
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
