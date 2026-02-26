@@ -10,31 +10,20 @@ An unofficial Forge 1.20.1 port of the [MiniScaled Fabric mod](https://github.co
 
 ### Building
 
-This mod requires the following dependencies to be built:
+All dependencies are downloaded automatically. No manual local-Maven setup is required.
 
-**Required build dependencies (must be in local Maven, `~/.m2/`):**
-
-| Dependency | Group:Artifact:Version |
-|---|---|
-| Immersive Portals Core (Forge) | `qouteall:imm_ptl_core:3.3.1.7` |
-| Immersive Portals Misc Utils (Forge) | `qouteall:q_misc_util:3.3.1.7` |
-
-These must be the **Forge** builds of ImmersivePortals installed into your local Maven repository
-(`mvn install` or `./gradlew publishToMavenLocal` from the ImmersivePortals Forge source).
-
-**Public Maven dependencies** (downloaded automatically):
+**Downloaded automatically:**
 - Forge 1.20.1-47.2.0 (from `https://maven.minecraftforge.net`)
+- ImmersivePortals Core & Misc Utils (via [JitPack](https://jitpack.io/#iPortalTeam/ImmersivePortalsMod))
 - Cloth Config Forge 11.1.106 (from `https://maven.shedaniel.me/`)
 
 **Build steps:**
 
 ```bash
-# 1. Install ImmersivePortals Forge to local Maven first (see above)
-
-# 2. Build this mod
+# Build the mod (first run downloads ~1 GB of Forge/Minecraft assets)
 ./gradlew build
 
-# 3. The output JAR is in build/libs/
+# Output JAR is in build/libs/
 ```
 
 **Run in development:**

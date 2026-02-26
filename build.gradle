@@ -56,12 +56,12 @@ repositories {
 dependencies {
 	minecraft "net.minecraftforge:forge:${forge_version}"
 
-	// ImmersivePortals for Forge (requires Forge build installed in mavenLocal)
-	implementation fg.deobf('qouteall:imm_ptl_core:3.3.1.7')
-	implementation fg.deobf('qouteall:q_misc_util:3.3.1.7')
+	// ImmersivePortals for Forge (via JitPack – works in CI and local without a pre-built local Maven install)
+	implementation fg.deobf("com.github.iPortalTeam.ImmersivePortalsMod:imm_ptl_core:${immptl_version}")
+	implementation fg.deobf("com.github.iPortalTeam.ImmersivePortalsMod:q_misc_util:${immptl_version}")
 
-//	implementation fg.deobf("com.github.iPortalTeam.ImmersivePortalsMod:imm_ptl_core:${immptl_version}")
-//	implementation fg.deobf("com.github.iPortalTeam.ImmersivePortalsMod:q_misc_util:${immptl_version}")
+//	implementation fg.deobf('qouteall:imm_ptl_core:3.3.1.7')
+//	implementation fg.deobf('qouteall:q_misc_util:3.3.1.7')
 
 	implementation fg.deobf("me.shedaniel.cloth:cloth-config-forge:${cloth_config_version}")
 
