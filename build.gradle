@@ -107,16 +107,18 @@ jar {
 	}
 }
 
-publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			artifact(jar) {
-				builtBy reobfJar
+afterEvaluate {
+	publishing {
+		publications {
+			mavenJava(MavenPublication) {
+				artifact(jar) {
+					builtBy reobfJar
+				}
 			}
 		}
-	}
 
-	repositories {
-		// Add repositories to publish to here.
+		repositories {
+			// Add repositories to publish to here.
+		}
 	}
 }
