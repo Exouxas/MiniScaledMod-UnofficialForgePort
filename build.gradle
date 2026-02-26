@@ -53,6 +53,17 @@ repositories {
 	maven { url "https://maven.shedaniel.me/" }
 }
 
+// Exclude Fabric-specific artifacts from ALL configurations (including ForgeGradle's internal
+// __obfuscated config). The JitPack POM for ImmersivePortalsMod lists fabric-loader, fabric-api,
+// cloth-config-fabric and mixinextras-fabric as transitive runtime dependencies, but none of those
+// are available from the Forge Maven repositories and none are needed on a Forge class-path.
+configurations.configureEach {
+	exclude group: "net.fabricmc"
+	exclude group: "net.fabricmc.fabric-api"
+	exclude module: "cloth-config-fabric"
+	exclude module: "mixinextras-fabric"
+}
+
 dependencies {
 	minecraft "net.minecraftforge:forge:${forge_version}"
 
