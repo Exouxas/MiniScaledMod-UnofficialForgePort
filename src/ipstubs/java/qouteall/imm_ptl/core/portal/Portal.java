@@ -10,6 +10,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.resources.ResourceKey;
+import qouteall.q_misc_util.my_util.DQuaternion;
 
 public class Portal extends Entity {
     public double scaling = 1.0;
@@ -70,7 +71,7 @@ public class Portal extends Entity {
     public void setHeight(double height) {
     }
 
-    public void setRotation(Object quaternion) {
+    public void setRotation(DQuaternion quaternion) {
     }
 
     public void setTeleportChangesGravity(boolean val) {
