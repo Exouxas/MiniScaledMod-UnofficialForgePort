@@ -24,8 +24,11 @@ public class MiniScaledModInitializerClient {
     private static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         // PortalEntityRenderer extends EntityRenderer<Portal>, but MiniScaledPortal extends Portal.
         // The cast is safe because the renderer handles all Portal subtypes.
+        // Use getPortalEntityType() directly instead of MiniScaledPortal.entityType, because
+        // the static field is assigned in FMLCommonSetupEvent.enqueueWork() which runs AFTER
+        // EntityRenderersEvent.RegisterRenderers fires, leaving it null and causing a crash.
         event.registerEntityRenderer(
-            MiniScaledPortal.entityType,
+            MiniScaledRegistries.getPortalEntityType(),
             ctx -> (EntityRenderer<MiniScaledPortal>)(Object) new PortalEntityRenderer(ctx)
         );
     }
