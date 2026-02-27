@@ -2,6 +2,7 @@ package qouteall.q_misc_util;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Tuple;
 import net.minecraft.world.phys.AABB;
@@ -10,7 +11,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.stream.Stream;
 
 public class Helper {
-    public static void log(String msg) {
+    public static void log(Object msg) {
         System.out.println(msg);
     }
 
@@ -30,7 +31,7 @@ public class Helper {
         return new Vec3(box.getXsize(), box.getYsize(), box.getZsize());
     }
 
-    public static int getCoordinate(BlockPos pos, Direction.Axis axis) {
+    public static int getCoordinate(Vec3i pos, Direction.Axis axis) {
         return switch (axis) {
             case X -> pos.getX();
             case Y -> pos.getY();
@@ -46,7 +47,7 @@ public class Helper {
         };
     }
 
-    public static BlockPos putCoordinate(BlockPos pos, Direction.Axis axis, int value) {
+    public static BlockPos putCoordinate(Vec3i pos, Direction.Axis axis, int value) {
         return switch (axis) {
             case X -> new BlockPos(value, pos.getY(), pos.getZ());
             case Y -> new BlockPos(pos.getX(), value, pos.getZ());
@@ -58,7 +59,7 @@ public class Helper {
         return BlockPos.ZERO;
     }
 
-    public static void putVec3i(CompoundTag tag, String key, BlockPos pos) {
+    public static void putVec3i(CompoundTag tag, String key, Vec3i pos) {
     }
 
     public static long secondToNano(double seconds) {

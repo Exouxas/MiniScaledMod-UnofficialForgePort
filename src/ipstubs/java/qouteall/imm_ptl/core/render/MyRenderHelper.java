@@ -6,8 +6,8 @@ public class MyRenderHelper {
     public static void drawFramebuffer(
         RenderTarget target,
         boolean flipY, boolean flipX,
-        double left, double right,
-        double bottom, double top
+        float left, double right,
+        float bottom, double top
     ) {
     }
 }
