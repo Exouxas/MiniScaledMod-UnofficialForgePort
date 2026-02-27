@@ -25,7 +25,7 @@ import qouteall.imm_ptl.core.portal.animation.TimingFunction;
 import net.minecraftforge.common.MinecraftForge;
 import qouteall.imm_ptl.core.render.GuiPortalRendering;
 import qouteall.imm_ptl.core.render.MyRenderHelper;
-import qouteall.imm_ptl.core.render.renderer.PortalRenderer;
+import qouteall.imm_ptl.core.render.PortalRenderer;
 import qouteall.imm_ptl.core.render.context_management.RenderStates;
 import qouteall.imm_ptl.core.render.context_management.WorldRenderInfo;
 import qouteall.mini_scaled.MiniScaledPortal;
@@ -84,19 +84,18 @@ public class ScaleBoxManagementScreen extends Screen {
     private final Button optionsButton;
     
     public static void init_() {
-        // Register to filter MiniScaled portals from rendering while the ScaleBox GUI is open.
-        // iPortalTeam/ImmersivePortalsModForNeo uses PortalRenderingPredicateEvent on the
-        // Forge/NeoForge event bus instead of the old static PORTAL_RENDERING_PREDICATE field.
-        MinecraftForge.EVENT_BUS.addListener(ScaleBoxManagementScreen::onPortalRenderingPredicate);
+        // Don't render MiniScaled portals while the ScaleBox GUI is open.
+        // ImmersivePortals (Forge) 3.0.7 fires DoRenderPortalEvent (cancellable) on MinecraftForge.EVENT_BUS.
+        MinecraftForge.EVENT_BUS.addListener(ScaleBoxManagementScreen::onDoRenderPortal);
     }
 
-    private static void onPortalRenderingPredicate(PortalRenderer.PortalRenderingPredicateEvent event) {
+    private static void onDoRenderPortal(PortalRenderer.DoRenderPortalEvent event) {
         if (event.portal instanceof MiniScaledPortal) {
             List<UUID> renderingDescription = WorldRenderInfo.getRenderingDescription();
             if (!renderingDescription.isEmpty() &&
                 Objects.equals(renderingDescription.get(0), RENDERING_DESC)
             ) {
-                event.setCanRender(false);
+                event.setCanceled(true);
             }
         }
     }
