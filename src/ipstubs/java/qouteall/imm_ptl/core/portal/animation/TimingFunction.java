@@ -1,9 +1,12 @@
 package qouteall.imm_ptl.core.portal.animation;
 
-public class TimingFunction {
-    public interface Mapper {
-        double mapProgress(double progress);
-    }
+public enum TimingFunction {
+    linear,
+    sine,
+    circle,
+    easeInOutCubic;
 
-    public static final Mapper sine = progress -> progress;
+    public double mapProgress(double progress) {
+        return progress;
+    }
 }

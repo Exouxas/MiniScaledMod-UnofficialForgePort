@@ -1,18 +1,25 @@
 package qouteall.q_misc_util.my_util.animation;
 
-import java.util.function.DoubleUnaryOperator;
-import java.util.function.LongSupplier;
-
 public class Animated<T> {
     public static final TypeInfo<Double> DOUBLE_TYPE_INFO = new TypeInfo<>();
 
     public static class TypeInfo<T> {
     }
 
+    /** Functional interface matching qouteall.q_misc_util.my_util.animation.Animated$TimeSupplier */
+    public interface TimeSupplier {
+        long getTime();
+    }
+
+    /** Functional interface matching qouteall.q_misc_util.my_util.animation.Animated$TimingFunction */
+    public interface TimingFunction {
+        double apply(double progress);
+    }
+
     private T current;
     private T target;
 
-    public Animated(TypeInfo<T> typeInfo, LongSupplier timeSupplier, DoubleUnaryOperator progressMapper, T initialValue) {
+    public Animated(TypeInfo<T> typeInfo, TimeSupplier timeSupplier, TimingFunction timingFunction, T initialValue) {
         this.current = initialValue;
         this.target = initialValue;
     }
