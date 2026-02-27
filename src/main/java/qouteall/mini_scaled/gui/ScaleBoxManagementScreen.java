@@ -84,18 +84,25 @@ public class ScaleBoxManagementScreen extends Screen {
     
     public static void init_() {
         // don't render MiniScaled portal when rendering the view in scale box gui
-        PortalRenderer.PORTAL_RENDERING_PREDICATE.register(portal -> {
-            if (portal instanceof MiniScaledPortal) {
-                List<UUID> renderingDescription = WorldRenderInfo.getRenderingDescription();
-                if (!renderingDescription.isEmpty() &&
-                    Objects.equals(renderingDescription.get(0), RENDERING_DESC)
-                ) {
-                    return false;
+        // PORTAL_RENDERING_PREDICATE was added in a newer ImmersivePortals version;
+        // guard against older versions (e.g. 3.0.7) that don't have it yet.
+        try {
+            PortalRenderer.PORTAL_RENDERING_PREDICATE.register(portal -> {
+                if (portal instanceof MiniScaledPortal) {
+                    List<UUID> renderingDescription = WorldRenderInfo.getRenderingDescription();
+                    if (!renderingDescription.isEmpty() &&
+                        Objects.equals(renderingDescription.get(0), RENDERING_DESC)
+                    ) {
+                        return false;
+                    }
                 }
-            }
-            
-            return true;
-        });
+                
+                return true;
+            });
+        } catch (NoSuchFieldError e) {
+            // PORTAL_RENDERING_PREDICATE not available in this version of ImmersivePortals;
+            // portal rendering filter in the ScaleBox GUI will not be active.
+        }
     }
     
     public static void openGui(ScaleBoxGuiManager.GuiData guiData) {
