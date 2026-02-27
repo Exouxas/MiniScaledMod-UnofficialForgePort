@@ -1,12 +1,27 @@
 ## MiniScaled Mod (Unofficial Forge Port)
 
-An unofficial Forge 1.20.1 port of the [MiniScaled Fabric mod](https://github.com/qouteall/MiniScaledMod) that provides easy-usable scale boxes using [Immersive Portals](https://github.com/qouteall/ImmersivePortalsMod) functionality. You can enter the scale box seamlessly without loading screen.
+An unofficial Forge 1.20.1 port of the [MiniScaled Fabric mod](https://github.com/qouteall/MiniScaledMod) that provides easy-usable scale boxes using [Immersive Portals](https://github.com/iPortalTeam/ImmersivePortalsModForNeo) functionality. You can enter the scale box seamlessly without loading screen.
 
 ![miniscaled1.png](https://i.loli.net/2021/09/30/J9bBF82tRu5yIkW.png)
 
 ### How to use
 
 [Check the Wiki](https://qouteall.fun/immptl/wiki/MiniScaled.html)
+
+### Runtime Requirements
+
+These mods must be present in your `mods/` folder to run:
+
+| Mod | Required Version |
+|---|---|
+| Minecraft | 1.20.1 |
+| Forge | 47.2.0+ |
+| [Immersive Portals (Forge)](https://github.com/iPortalTeam/ImmersivePortalsModForNeo) | **6.0.x or newer** (versions from qouteall's original 3.x repo are NOT compatible — see note below) |
+| [Cloth Config (Forge)](https://github.com/shedaniel/cloth-config) | 11.1.106+ |
+
+> **⚠️ ImmersivePortals version note:** This mod targets [iPortalTeam/ImmersivePortalsModForNeo](https://github.com/iPortalTeam/ImmersivePortalsModForNeo) (version 6.0.x+), which uses a `PortalRenderingPredicateEvent` on the NeoForge/Forge event bus to filter portal rendering. The original qouteall ImmersivePortals 3.x releases (e.g. `immersive-portals-3.0.7-all.jar`) are from a **different repo** and are **not compatible**.
+
+---
 
 ### Building
 
@@ -19,15 +34,15 @@ This mod can be built in two modes:
 
 | Dependency | Group:Artifact:Version |
 |---|---|
-| Immersive Portals Core (Forge) | `qouteall:imm_ptl_core:3.3.1.7` |
-| Immersive Portals Misc Utils (Forge) | `qouteall:q_misc_util:3.3.1.7` |
+| Immersive Portals Core | `qouteall:imm_ptl_core:<version>` (iPortalTeam 6.0.x build) |
+| Immersive Portals Misc Utils | `qouteall:q_misc_util:<version>` (iPortalTeam 6.0.x build) |
 
-These must be the **Forge** builds of ImmersivePortals installed into your local Maven repository
-(`mvn install` or `./gradlew publishToMavenLocal` from the ImmersivePortals Forge source).
+These must be **iPortalTeam's NeoForge builds** of ImmersivePortals installed into your local Maven repository
+(`mvn install` or `./gradlew publishToMavenLocal` from [iPortalTeam/ImmersivePortalsModForNeo](https://github.com/iPortalTeam/ImmersivePortalsModForNeo)).
 
 **Public Maven dependencies** (downloaded automatically):
-- Forge 1.20.1-47.2.0 (from `https://maven.minecraftforge.net`)
-- Cloth Config Forge 11.1.106 (from `https://maven.shedaniel.me/`)
+- Forge 1.20.1-47.2.0+ (from `https://maven.minecraftforge.net`)
+- Cloth Config Forge 11.1.106+ (from `https://maven.shedaniel.me/`)
 
 **Build steps:**
 

@@ -22,9 +22,10 @@ import org.slf4j.Logger;
 import qouteall.imm_ptl.core.ClientWorldLoader;
 import qouteall.imm_ptl.core.McHelper;
 import qouteall.imm_ptl.core.portal.animation.TimingFunction;
+import net.minecraftforge.common.MinecraftForge;
 import qouteall.imm_ptl.core.render.GuiPortalRendering;
 import qouteall.imm_ptl.core.render.MyRenderHelper;
-import qouteall.imm_ptl.core.render.PortalRenderer;
+import qouteall.imm_ptl.core.render.renderer.PortalRenderer;
 import qouteall.imm_ptl.core.render.context_management.RenderStates;
 import qouteall.imm_ptl.core.render.context_management.WorldRenderInfo;
 import qouteall.mini_scaled.MiniScaledPortal;
@@ -83,25 +84,20 @@ public class ScaleBoxManagementScreen extends Screen {
     private final Button optionsButton;
     
     public static void init_() {
-        // don't render MiniScaled portal when rendering the view in scale box gui
-        // PORTAL_RENDERING_PREDICATE was added in a newer ImmersivePortals version;
-        // guard against older versions (e.g. 3.0.7) that don't have it yet.
-        try {
-            PortalRenderer.PORTAL_RENDERING_PREDICATE.register(portal -> {
-                if (portal instanceof MiniScaledPortal) {
-                    List<UUID> renderingDescription = WorldRenderInfo.getRenderingDescription();
-                    if (!renderingDescription.isEmpty() &&
-                        Objects.equals(renderingDescription.get(0), RENDERING_DESC)
-                    ) {
-                        return false;
-                    }
-                }
-                
-                return true;
-            });
-        } catch (NoSuchFieldError e) {
-            // PORTAL_RENDERING_PREDICATE not available in this version of ImmersivePortals;
-            // portal rendering filter in the ScaleBox GUI will not be active.
+        // Register to filter MiniScaled portals from rendering while the ScaleBox GUI is open.
+        // iPortalTeam/ImmersivePortalsModForNeo uses PortalRenderingPredicateEvent on the
+        // Forge/NeoForge event bus instead of the old static PORTAL_RENDERING_PREDICATE field.
+        MinecraftForge.EVENT_BUS.addListener(ScaleBoxManagementScreen::onPortalRenderingPredicate);
+    }
+
+    private static void onPortalRenderingPredicate(PortalRenderer.PortalRenderingPredicateEvent event) {
+        if (event.portal instanceof MiniScaledPortal) {
+            List<UUID> renderingDescription = WorldRenderInfo.getRenderingDescription();
+            if (!renderingDescription.isEmpty() &&
+                Objects.equals(renderingDescription.get(0), RENDERING_DESC)
+            ) {
+                event.setCanRender(false);
+            }
         }
     }
     
