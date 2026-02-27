@@ -3,6 +3,7 @@
   "minVersion": "0.8",
   "package": "qouteall.mini_scaled.mixin",
   "compatibilityLevel": "JAVA_17",
+  "refmap": "mini_scaled.refmap.json",
   "mixins": [
     "common.MixinLivingEntity",
     "common.MixinMinecraftServer"

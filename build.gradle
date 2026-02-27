@@ -4,8 +4,30 @@ plugins {
 	id 'maven-publish'
 }
 
+def useRealImmersivePortalsDeps = (project.findProperty('useRealImmersivePortalsDeps') ?: 'false').toString().toBoolean()
+
 java {
 	toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+// Compile-only API stubs for Immersive Portals (Forge) + q_misc_util.
+// This makes `gradlew build` work in environments where the real artifacts are not available.
+// Enable real deps by passing: -PuseRealImmersivePortalsDeps=true
+sourceSets {
+	ipstubs {
+		java {
+			srcDir 'src/ipstubs/java'
+		}
+		resources.srcDirs = []
+		// IMPORTANT: do not include ipstubs output on its own compileClasspath
+		// (otherwise Gradle creates a circular task dependency).
+		compileClasspath += sourceSets.main.compileClasspath
+		runtimeClasspath = files()
+	}
+}
+
+configurations {
+	ipstubsImplementation.extendsFrom implementation
 }
 
 version = project.mod_version
@@ -56,16 +78,24 @@ repositories {
 dependencies {
 	minecraft "net.minecraftforge:forge:${forge_version}"
 
-	// ImmersivePortals for Forge (requires Forge build installed in mavenLocal)
-	implementation fg.deobf('qouteall:imm_ptl_core:3.3.1.7')
-	implementation fg.deobf('qouteall:q_misc_util:3.3.1.7')
+	// ImmersivePortals for Forge (Forge builds are expected in mavenLocal or another Maven repo)
+	// Default is to use compile-only stubs to keep builds self-contained.
+	if (useRealImmersivePortalsDeps) {
+		implementation fg.deobf('qouteall:imm_ptl_core:3.3.1.7')
+		implementation fg.deobf('qouteall:q_misc_util:3.3.1.7')
+	}
 
-//	implementation fg.deobf("com.github.iPortalTeam.ImmersivePortalsMod:imm_ptl_core:${immptl_version}")
-//	implementation fg.deobf("com.github.iPortalTeam.ImmersivePortalsMod:q_misc_util:${immptl_version}")
-
-	implementation fg.deobf("me.shedaniel.cloth:cloth-config-forge:${cloth_config_version}")
+		implementation "me.shedaniel.cloth:cloth-config-forge:${cloth_config_version}"
 
 	annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+// When not using the real Immersive Portals deps, compile main sources against the stubs output.
+if (!useRealImmersivePortalsDeps) {
+	tasks.named('compileJava').configure {
+		dependsOn tasks.named('compileIpstubsJava')
+		classpath += files(sourceSets.ipstubs.output.classesDirs)
+	}
 }
 
 mixin {
@@ -110,9 +140,7 @@ jar {
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
-			artifact(jar) {
-				builtBy reobfJar
-			}
+			from components.java
 		}
 	}
 

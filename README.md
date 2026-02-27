@@ -10,9 +10,12 @@ An unofficial Forge 1.20.1 port of the [MiniScaled Fabric mod](https://github.co
 
 ### Building
 
-This mod requires the following dependencies to be built:
+This mod can be built in two modes:
 
-**Required build dependencies (must be in local Maven, `~/.m2/`):**
+1) **Self-contained build (default)**: uses compile-only API stubs for Immersive Portals + q_misc_util. This is enough for CI-style compilation/jar output, but you still need the real Immersive Portals (Forge) mod to run.
+2) **Real dependency build**: uses the actual Immersive Portals (Forge) + q_misc_util artifacts from Maven (typically `mavenLocal`).
+
+**Real dependency build requirements (must be in local Maven, `~/.m2/`):**
 
 | Dependency | Group:Artifact:Version |
 |---|---|
@@ -29,12 +32,15 @@ These must be the **Forge** builds of ImmersivePortals installed into your local
 **Build steps:**
 
 ```bash
-# 1. Install ImmersivePortals Forge to local Maven first (see above)
-
-# 2. Build this mod
+# Option A (default): self-contained build (compiles against stubs)
 ./gradlew build
 
-# 3. The output JAR is in build/libs/
+# Option B: build against the real ImmersivePortals Forge artifacts
+# 1. Install ImmersivePortals Forge to local Maven first (see above)
+# 2. Build with the flag enabled
+./gradlew build -PuseRealImmersivePortalsDeps=true
+
+# Output JAR is in build/libs/
 ```
 
 **Run in development:**

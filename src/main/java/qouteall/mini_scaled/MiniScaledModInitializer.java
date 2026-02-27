@@ -33,7 +33,6 @@ import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity;
 import qouteall.mini_scaled.config.MiniScaledConfig;
 import qouteall.mini_scaled.item.ManipulationWandItem;
 import qouteall.mini_scaled.item.ScaleBoxEntranceItem;
-import qouteall.q_misc_util.LifecycleHack;
 import qouteall.q_misc_util.MiscHelper;
 import qouteall.q_misc_util.api.DimensionAPI;
 
@@ -80,7 +79,8 @@ public class MiniScaledModInitializer {
     private void onCommonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             DimensionAPI.serverDimensionsLoadEvent.register(VoidDimension::initializeVoidDimension);
-            LifecycleHack.markNamespaceStable("mini_scaled");
+            // LifecycleHack.markNamespaceStable is Fabric-specific (calls into Fabric registry sync internals)
+            // and must NOT be called on Forge — it deadlocks with Forge's registry locks during COMMON_SETUP.
             
             // Assign entity/block entity types from deferred register after registration
             MiniScaledPortal.entityType = MiniScaledRegistries.getPortalEntityType();
