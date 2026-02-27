@@ -8,6 +8,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
@@ -17,14 +18,13 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.FlatLevelSource;
-import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.flat.FlatLayerInfo;
 import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorSettings;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import qouteall.imm_ptl.core.McHelper;
-import qouteall.q_misc_util.api.DimensionAPI;
+import qouteall.dimlib.api.DimensionAPI;
 
 import java.util.ArrayList;
 import java.util.Optional;
@@ -35,10 +35,8 @@ public class VoidDimension {
         new ResourceLocation("mini_scaled:void")
     );
     
-    static void initializeVoidDimension(
-        WorldOptions generatorOptions, RegistryAccess registryManager
-    ) {
-        Registry<LevelStem> registry = registryManager.registryOrThrow(Registries.LEVEL_STEM);
+    static void initializeVoidDimension(MinecraftServer server) {
+        RegistryAccess registryManager = server.registryAccess();
         
         Holder<DimensionType> dimType = registryManager.registryOrThrow(Registries.DIMENSION_TYPE).getHolder(
             ResourceKey.create(Registries.DIMENSION_TYPE, new ResourceLocation("mini_scaled:void_dim_type"))
@@ -47,8 +45,8 @@ public class VoidDimension {
         ResourceLocation dimId = new ResourceLocation("mini_scaled:void");
         
         DimensionAPI.addDimension(
-            registry, dimId, dimType,
-            createVoidGenerator(registryManager)
+            server, dimId,
+            new LevelStem(dimType, createVoidGenerator(registryManager))
         );
     }
     
