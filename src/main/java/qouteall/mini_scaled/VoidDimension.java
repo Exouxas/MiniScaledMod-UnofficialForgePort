@@ -8,7 +8,6 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
@@ -24,7 +23,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import qouteall.imm_ptl.core.McHelper;
-import qouteall.dimlib.api.DimensionAPI;
+import qouteall.q_misc_util.api.DimensionAPI;
 
 import java.util.ArrayList;
 import java.util.Optional;
@@ -35,9 +34,7 @@ public class VoidDimension {
         new ResourceLocation("mini_scaled:void")
     );
     
-    static void initializeVoidDimension(MinecraftServer server) {
-        RegistryAccess registryManager = server.registryAccess();
-        
+    static void initializeVoidDimension(RegistryAccess registryManager) {
         Holder<DimensionType> dimType = registryManager.registryOrThrow(Registries.DIMENSION_TYPE).getHolder(
             ResourceKey.create(Registries.DIMENSION_TYPE, new ResourceLocation("mini_scaled:void_dim_type"))
         ).orElseThrow(() -> new RuntimeException("Missing dimension type mini_scaled:void_dim_type"));
@@ -45,8 +42,10 @@ public class VoidDimension {
         ResourceLocation dimId = new ResourceLocation("mini_scaled:void");
         
         DimensionAPI.addDimension(
-            server, dimId,
-            new LevelStem(dimType, createVoidGenerator(registryManager))
+            registryManager.registryOrThrow(Registries.LEVEL_STEM),
+            dimId,
+            dimType,
+            createVoidGenerator(registryManager)
         );
     }
     

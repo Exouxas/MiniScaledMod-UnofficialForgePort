@@ -34,7 +34,7 @@ import qouteall.mini_scaled.config.MiniScaledConfig;
 import qouteall.mini_scaled.item.ManipulationWandItem;
 import qouteall.mini_scaled.item.ScaleBoxEntranceItem;
 import qouteall.q_misc_util.MiscHelper;
-import qouteall.dimlib.api.DimensionAPI;
+import qouteall.q_misc_util.forge.events.ServerDimensionsLoadEvent;
 
 @Mod("mini_scaled")
 public class MiniScaledModInitializer {
@@ -55,6 +55,7 @@ public class MiniScaledModInitializer {
         MinecraftForge.EVENT_BUS.addListener(this::onRightClickBlock);
         MinecraftForge.EVENT_BUS.addListener(this::onRegisterCommands);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
+        MinecraftForge.EVENT_BUS.addListener(this::onServerDimensionsLoad);
         
         // Register config
         MSGlobal.config = AutoConfig.register(MiniScaledConfig.class, GsonConfigSerializer::new);
@@ -78,16 +79,16 @@ public class MiniScaledModInitializer {
     
     private void onCommonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
-            DimensionAPI.SERVER_DIMENSIONS_LOAD_EVENT.register(VoidDimension::initializeVoidDimension);
-            // LifecycleHack.markNamespaceStable is Fabric-specific (calls into Fabric registry sync internals)
-            // and must NOT be called on Forge — it deadlocks with Forge's registry locks during COMMON_SETUP.
-            
             // Assign entity/block entity types from deferred register after registration
             MiniScaledPortal.entityType = MiniScaledRegistries.getPortalEntityType();
             ScaleBoxPlaceholderBlockEntity.blockEntityType = MiniScaledRegistries.getPlaceholderBeType();
             
             IPGlobal.enableDepthClampForPortalRendering = true;
         });
+    }
+    
+    private void onServerDimensionsLoad(ServerDimensionsLoadEvent event) {
+        VoidDimension.initializeVoidDimension(event.registryManager);
     }
     
     private void onServerTick(TickEvent.ServerTickEvent event) {
