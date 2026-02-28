@@ -178,7 +178,7 @@ public class MiniScaledPortal extends Portal {
                 Player player = (Player) entity;
                 if (player.getPose() == Pose.CROUCHING) {
                     IPGlobal.clientTaskList.addTask(() -> {
-                        if (player.level() == level()) {
+                        if (player.level() == getOriginWorld()) {
                             Vec3 posDelta = gravityVec.scale(0.01);
                             
                             // changing player pos immediately may cause ConcurrentModificationException
@@ -239,7 +239,7 @@ public class MiniScaledPortal extends Portal {
     
     @Override
     public boolean isInteractableBy(Player player) {
-        if (level().isClientSide()) {
+        if (getOriginWorld().isClientSide()) {
             return ClientScaleBoxInteractionControl.canInteractInsideScaleBox();
         }
         

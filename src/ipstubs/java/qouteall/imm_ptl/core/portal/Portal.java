@@ -45,6 +45,10 @@ public class Portal extends Entity {
         return null;
     }
 
+    public Level getOriginWorld() {
+        return null;
+    }
+
     public void setDestinationDimension(ResourceKey<Level> dimensionKey) {
     }
 
