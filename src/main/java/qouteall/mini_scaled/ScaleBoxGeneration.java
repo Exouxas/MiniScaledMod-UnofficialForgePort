@@ -67,6 +67,10 @@ public class ScaleBoxGeneration {
         ScaleBoxRecord.get().setDirty(true);
         
         ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
+        if (voidWorld == null) {
+            LOGGER.error("Void world is not loaded yet, cannot place scale box portals for entry {}", entry.id);
+            return;
+        }
         createScaleBoxPortals(voidWorld, world, entry);
         
         entry.getOuterAreaBox().stream().forEach(outerPos -> {
@@ -137,6 +141,11 @@ public class ScaleBoxGeneration {
             
             MiniScaledPortal reversePortal =
                 PortalManipulation.createReversePortal(portal, MiniScaledPortal.entityType);
+            
+            if (reversePortal == null) {
+                LOGGER.error("createReversePortal returned null for direction {}, skipping reverse portal", outerDirection);
+                continue;
+            }
             
             reversePortal.fuseView = false;
             reversePortal.renderingMergable = true;
@@ -209,6 +218,10 @@ public class ScaleBoxGeneration {
         IntBox innerAreaBox = entry.getInnerAreaBox();
         
         ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
+        if (voidWorld == null) {
+            LOGGER.error("Void world is not loaded yet, cannot initialize inner box blocks for entry {}", entry.id);
+            return;
+        }
         
         ChunkLoader chunkLoader = new ChunkLoader(
             new DimensionalChunkPos(

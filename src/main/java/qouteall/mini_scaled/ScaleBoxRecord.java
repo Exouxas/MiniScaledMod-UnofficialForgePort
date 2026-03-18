@@ -101,7 +101,7 @@ public class ScaleBoxRecord extends SavedData {
         byId.clear();
         byOwner.clear();
         
-        ListTag list = compoundTag.getList("entries", compoundTag.getId());
+        ListTag list = compoundTag.getList("entries", net.minecraft.nbt.Tag.TAG_COMPOUND);
         
         list.forEach(tag -> {
             if (tag instanceof CompoundTag c) {
