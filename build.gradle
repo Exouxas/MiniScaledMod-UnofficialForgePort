@@ -88,12 +88,26 @@ dependencies {
 		implementation "me.shedaniel.cloth:cloth-config-forge:${cloth_config_version}"
 
 	annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+}
+
+test {
+	useJUnitPlatform()
 }
 
 // When not using the real Immersive Portals deps, compile main sources against the stubs output.
 if (!useRealImmersivePortalsDeps) {
 	tasks.named('compileJava').configure {
 		dependsOn tasks.named('compileIpstubsJava')
+		classpath += files(sourceSets.ipstubs.output.classesDirs)
+	}
+	tasks.named('compileTestJava').configure {
+		dependsOn tasks.named('compileIpstubsJava')
+		classpath += files(sourceSets.ipstubs.output.classesDirs)
+	}
+	tasks.named('test').configure {
 		classpath += files(sourceSets.ipstubs.output.classesDirs)
 	}
 }
