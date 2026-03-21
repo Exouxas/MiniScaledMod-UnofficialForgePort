@@ -159,8 +159,12 @@ public class ScaleBoxManipulation {
         InteractionHand hand,
         BlockHitResult hitResult
     ) {
+        // On the client side, return PASS so Forge does NOT cancel the event and
+        // the interaction packet IS sent to the server. If we returned SUCCESS here
+        // the event would be cancelled client-side, no packet would be sent, and
+        // the server would never process the expand/shrink.
         if (world.isClientSide()) {
-            return InteractionResult.SUCCESS;
+            return InteractionResult.PASS;
         }
         
         ItemStack stack = player.getItemInHand(hand);

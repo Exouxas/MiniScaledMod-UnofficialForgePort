@@ -297,8 +297,7 @@ publishing {
 		}
 	}
 
-		repositories {
-			// Add repositories to publish to here.
-		}
+	repositories {
+		// Add repositories to publish to here.
 	}
 }
