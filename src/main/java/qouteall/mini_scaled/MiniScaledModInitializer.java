@@ -56,11 +56,6 @@ public class MiniScaledModInitializer {
         MinecraftForge.EVENT_BUS.addListener(this::onRegisterCommands);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(this::onServerDimensionsLoad);
-        // Also register via the BiConsumer API so the void dimension is created
-        // regardless of which mechanism the real ImmPTL uses to signal dimension loading.
-        qouteall.q_misc_util.api.DimensionAPI.serverDimensionsLoadEvent.register(
-            (worldOptions, registryAccess) -> VoidDimension.initializeVoidDimension(registryAccess)
-        );
 
         // Register GameTest classes so ./gradlew runGameTestServer picks them up.
         // @GameTestHolder on MiniScaledGameTests is sufficient for auto-discovery in Forge 47.x.

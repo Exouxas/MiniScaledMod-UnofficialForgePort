@@ -49,7 +49,7 @@ minecraft {
 			mods {
 				mini_scaled {
 					source sourceSets.main
-					source sourceSets.ipstubs
+					if (!useRealImmersivePortalsDeps) { source sourceSets.ipstubs }
 				}
 			}
 		}
@@ -62,7 +62,7 @@ minecraft {
 			mods {
 				mini_scaled {
 					source sourceSets.main
-					source sourceSets.ipstubs
+					if (!useRealImmersivePortalsDeps) { source sourceSets.ipstubs }
 				}
 			}
 		}
@@ -74,7 +74,7 @@ minecraft {
 			mods {
 				mini_scaled {
 					source sourceSets.main
-					source sourceSets.ipstubs
+					if (!useRealImmersivePortalsDeps) { source sourceSets.ipstubs }
 				}
 			}
 		}
@@ -111,6 +111,20 @@ dependencies {
 
 test {
 	useJUnitPlatform()
+	// The plain JUnit task runs without Forge's class transformer, which normally
+	// strips 'final' from methods like Entity.getBoundingBox(). When the real
+	// ImmPTL jar is on the classpath, Portal overrides that 'final' method and
+	// the JVM throws IncompatibleClassChangeError. Unit tests are pure-logic and
+	// pass correctly in stub mode (the default build). Integration testing with
+	// the real ImmPTL is done via runGameTestServer (which runs under Forge).
+	enabled = !useRealImmersivePortalsDeps
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+		showExceptions true
+		showCauses true
+		showStackTraces true
+	}
 }
 
 // When not using the real Immersive Portals deps, compile main sources against the stubs output.

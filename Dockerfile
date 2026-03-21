@@ -46,6 +46,10 @@ WORKDIR /build/mod
 # Give Gradle enough heap; ForgeGradle downloads Minecraft assets on first run.
 ENV GRADLE_OPTS="-Xmx2g"
 
+# gradlew is checked in with Windows line endings (CRLF) because it was created
+# on Windows; fix it so Linux sh can execute it.
+RUN sed -i 's/\r//' gradlew && chmod +x gradlew
+
 # First, build the jar (validates compilation against real ImmPTL APIs).
 RUN ./gradlew --no-daemon build -PuseRealImmersivePortalsDeps=true
 
