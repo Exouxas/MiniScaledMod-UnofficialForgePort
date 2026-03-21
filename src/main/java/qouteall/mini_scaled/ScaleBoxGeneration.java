@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.Validate;
@@ -27,6 +28,7 @@ import qouteall.imm_ptl.core.chunk_loading.ChunkLoader;
 import qouteall.imm_ptl.core.chunk_loading.DimensionalChunkPos;
 import qouteall.imm_ptl.core.portal.PortalExtension;
 import qouteall.imm_ptl.core.portal.PortalManipulation;
+import qouteall.mini_scaled.MiniScaledPortal;
 import qouteall.mini_scaled.block.BoxBarrierBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity;
@@ -59,13 +61,20 @@ public class ScaleBoxGeneration {
             }
         }
         
+        // Capture old placement before overwriting so we can kill any stale portals.
+        ResourceKey<Level> oldDim = entry.currentEntranceDim;
+        BlockPos oldPos = entry.currentEntrancePos;
+
         entry.currentEntranceDim = world.dimension();
         entry.currentEntrancePos = outerBoxBasePos;
         entry.entranceRotation = rotation;
         entry.generation++;
-        
+
         ScaleBoxRecord.get().setDirty(true);
-        
+
+        // Directly kill any lingering portals from the previous placement.
+        killStalePortals(entry.id, entry.generation, oldDim, oldPos, entry);
+
         ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
         if (voidWorld == null) {
             LOGGER.error("Void world is not loaded yet, cannot place scale box portals for entry {}", entry.id);
@@ -332,6 +341,45 @@ public class ScaleBoxGeneration {
     
     public static boolean isValidScale(int size) {
         return Arrays.stream(supportedScales).anyMatch(s -> s == size);
+    }
+
+    /**
+     * Immediately discards all {@link MiniScaledPortal} entities for the given
+     * box whose generation is strictly less than {@code newGeneration}.
+     * Called proactively so portals disappear at once rather than waiting up to
+     * two ticks for the per-portal generation check in {@link MiniScaledPortal#tick}.
+     *
+     * @param oldDim  the dimension the previous entrance was in (may be null if never placed)
+     * @param oldPos  the base-pos of the previous entrance (used to bound the search)
+     * @param entry   the current record entry (used to locate the void-world inner portals)
+     */
+    public static void killStalePortals(
+        int boxId, int newGeneration,
+        @Nullable ResourceKey<Level> oldDim,
+        @Nullable BlockPos oldPos,
+        ScaleBoxRecord.Entry entry
+    ) {
+        // Kill outer portals in the old entrance dimension.
+        if (oldDim != null && oldPos != null) {
+            ServerLevel oldWorld = McHelper.getServerWorld(oldDim);
+            if (oldWorld != null) {
+                AABB searchBox = new AABB(oldPos).inflate(32);
+                oldWorld.getEntitiesOfClass(MiniScaledPortal.class, searchBox)
+                    .stream()
+                    .filter(p -> p.boxId == boxId && p.generation < newGeneration)
+                    .forEach(Entity::discard);
+            }
+        }
+
+        // Kill inner portals in the void world.
+        ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
+        if (voidWorld != null && entry.innerBoxPos != null) {
+            AABB innerBB = entry.getInnerAreaBox().toRealNumberBox();
+            voidWorld.getEntitiesOfClass(MiniScaledPortal.class, innerBB.inflate(2))
+                .stream()
+                .filter(p -> p.boxId == boxId && p.generation < newGeneration)
+                .forEach(Entity::discard);
+        }
     }
     
     // will set dirty

@@ -108,6 +108,14 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
     
     public void dropItemIfNecessary() {
         if (isBasePos) {
+            // Guard: the server must be running to access ScaleBoxRecord.
+            // During GameTest structure initialization the server may not be
+            // ready yet, so we skip the item drop rather than crashing.
+            if (MiscHelper.getServer() == null) {
+                isBasePos = false;
+                return;
+            }
+
             // the up-facing outer portal breaks. drop item
             ItemStack itemToDrop = ScaleBoxEntranceItem.boxIdToItem(boxId);
             if (itemToDrop != null) {
@@ -149,6 +157,11 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
         ServerLevel world,
         BlockPos pos
     ) {
+        // Guard: nothing to do if the server isn't ready yet.
+        if (MiscHelper.getServer() == null) {
+            return;
+        }
+
         ScaleBoxRecord record = ScaleBoxRecord.get();
         ScaleBoxRecord.Entry entry = record.getEntryById(boxId);
         
@@ -181,9 +194,15 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
         if (!blocksValid) {
             entry.currentEntranceDim = null;
             record.setDirty(true);
-            
+
             notifyPortalBreak(boxId);
-            
+
+            // Directly kill stale portal entities so they disappear immediately
+            // rather than waiting for the per-portal generation tick check.
+            ScaleBoxGeneration.killStalePortals(
+                boxId, entry.generation, currentEntranceDim, entry.currentEntrancePos, entry
+            );
+
             ScaleBoxGeneration.createInnerPortalsPointingToVoidUnderneath(
                 entry
             );

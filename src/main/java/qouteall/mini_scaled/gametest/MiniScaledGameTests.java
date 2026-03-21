@@ -271,7 +271,7 @@ public class MiniScaledGameTests {
      * separately and verified by manual in-game testing.
      */
     @GameTest(template = FRAME9, timeoutTicks = 40)
-    public static void frameCreationClearsInteriorBlocks(GameTestHelper helper) {
+    public static void frameCreationPreservesInteriorBlocks(GameTestHelper helper) {
         // Ensure creationItem is set (normally done by onServerStarted via config).
         ScaleBoxEntranceCreation.creationItem = Items.NETHERITE_INGOT;
 
@@ -287,6 +287,7 @@ public class MiniScaledGameTests {
         }
 
         // Place a non-air block inside the frame (one block into the 2×2×2 interior).
+        // This simulates content the player intentionally placed inside their glass cube.
         BlockPos interiorPos = frameBase.offset(1, 1, 1);
         serverLevel.setBlockAndUpdate(interiorPos, Blocks.OAK_LOG.defaultBlockState());
 
@@ -310,15 +311,14 @@ public class MiniScaledGameTests {
             return;
         }
 
-        // Interior block must be air after the fix is applied.
-        // Before the fix this assertion fails because the oak log is left untouched.
+        // The interior block must still be there — frame creation only removes the 12
+        // glass edges, it must NOT wipe out player-placed content inside the cube.
         BlockState interiorState = serverLevel.getBlockState(interiorPos);
-        if (!interiorState.isAir()) {
+        if (interiorState.isAir()) {
             helper.fail(
-                "Interior blocks were NOT cleared after frame creation. " +
-                "Expected air at " + interiorPos + " but found: " + interiorState.getBlock() +
-                ". Fix: add IntBox.getAdjusted(1,1,1,-1,-1,-1) clearing in " +
-                "ScaleBoxEntranceCreation.onRightClickBoxFrameUsingNetherite."
+                "Interior blocks were incorrectly cleared after frame creation. " +
+                "Expected oak_log at " + interiorPos + " but found air. " +
+                "Frame creation should only remove the 12 glass edges, not the interior."
             );
             return;
         }

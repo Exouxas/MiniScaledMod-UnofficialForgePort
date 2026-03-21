@@ -132,12 +132,6 @@ public class ScaleBoxEntranceCreation {
             });
         }
         
-        // Clear any blocks inside the hollow frame interior so they don't remain
-        // floating in the world after the entrance is picked up.
-        box.getAdjusted(1, 1, 1, -1, -1, -1).fastStream().forEach(p -> {
-            world.setBlockAndUpdate(p, Blocks.AIR.defaultBlockState());
-        });
-        
         return true;
     }
     
