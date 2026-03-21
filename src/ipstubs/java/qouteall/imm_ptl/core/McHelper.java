@@ -2,7 +2,6 @@ package qouteall.imm_ptl.core;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
@@ -17,10 +16,6 @@ public class McHelper {
     }
 
     public static ServerLevel getOverWorldOnServer() {
-        return null;
-    }
-
-    public static MinecraftServer getServer() {
         return null;
     }
 

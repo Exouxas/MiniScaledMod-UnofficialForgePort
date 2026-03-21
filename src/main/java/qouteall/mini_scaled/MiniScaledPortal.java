@@ -177,7 +177,7 @@ public class MiniScaledPortal extends Portal {
                 // not ClientPlayerEntity to avoid dedicated server crash as it's captured in lambda
                 Player player = (Player) entity;
                 if (player.getPose() == Pose.CROUCHING) {
-                    IPGlobal.clientTaskList.addTask(() -> {
+                    IPGlobal.clientTaskList.addOneShotTask(() -> {
                         if (Minecraft.getInstance().level == getOriginWorld()) {
                             Vec3 posDelta = gravityVec.scale(0.01);
                             
@@ -189,7 +189,6 @@ public class MiniScaledPortal extends Portal {
                             );
                             McHelper.updateBoundingBox(player);
                         }
-                        return true;
                     });
                 }
             }

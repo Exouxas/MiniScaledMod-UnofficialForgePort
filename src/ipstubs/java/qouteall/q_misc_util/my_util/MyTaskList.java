@@ -1,12 +1,26 @@
 package qouteall.q_misc_util.my_util;
 
-import java.util.function.BooleanSupplier;
-
 public class MyTaskList {
-    public void addTask(BooleanSupplier task) {
+
+    /**
+     * Mirror of the real MyTaskList.MyTask inner interface in ImmPTL.
+     * The real addTask(MyTask) uses this type — NOT BooleanSupplier.
+     */
+    public interface MyTask {
+        boolean runAndGetIsFinished();
+
+        default void onCancelled() {}
     }
 
-    public static BooleanSupplier oneShotTask(Runnable runnable) {
+    public void addTask(MyTask task) {
+        // stub — no-op
+    }
+
+    public void addOneShotTask(Runnable runnable) {
+        // stub — no-op
+    }
+
+    public static MyTask oneShotTask(Runnable runnable) {
         return () -> {
             if (runnable != null) {
                 runnable.run();

@@ -9,16 +9,30 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
+import qouteall.imm_ptl.core.IPGlobal;
+import qouteall.imm_ptl.core.McHelper;
+import qouteall.imm_ptl.core.api.PortalAPI;
+import qouteall.imm_ptl.core.chunk_loading.ChunkLoader;
+import qouteall.imm_ptl.core.chunk_loading.DimensionalChunkPos;
+import qouteall.imm_ptl.core.commands.PortalCommand;
+import qouteall.imm_ptl.core.portal.Portal;
+import qouteall.imm_ptl.core.portal.PortalExtension;
+import qouteall.imm_ptl.core.portal.PortalManipulation;
+import qouteall.imm_ptl.core.teleportation.ServerTeleportationManager;
 import qouteall.mini_scaled.MiniScaledPortal;
 import qouteall.mini_scaled.MiniScaledRegistries;
 import qouteall.mini_scaled.ScaleBoxEntranceCreation;
@@ -27,9 +41,17 @@ import qouteall.mini_scaled.VoidDimension;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity;
 import qouteall.mini_scaled.util.MSUtil;
+import qouteall.q_misc_util.Helper;
+import qouteall.q_misc_util.MiscHelper;
+import qouteall.q_misc_util.api.McRemoteProcedureCall;
 import qouteall.q_misc_util.my_util.AARotation;
 import qouteall.q_misc_util.my_util.IntBox;
+import qouteall.q_misc_util.my_util.MyTaskList;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -381,5 +403,272 @@ public class MiniScaledGameTests {
         }
 
         helper.succeed();
+    }
+
+    // -------------------------------------------------------------------------
+    // IPGlobal.clientTaskList — MyTaskList API contract
+    // -------------------------------------------------------------------------
+
+    /**
+     * {@code IPGlobal.clientTaskList.addTask(MyTask)} must accept a
+     * {@link MyTaskList.MyTask} (the real ImmPTL inner interface), NOT a
+     * plain {@code BooleanSupplier}.
+     *
+     * <p><b>This test would have caught the crash before the fix:</b> the original
+     * stub defined {@code addTask(BooleanSupplier)}, which compiled fine but threw
+     * {@code NoSuchMethodError} at runtime against ImmPTL 3.0.7 because the real
+     * method signature is {@code addTask(MyTaskList.MyTask)}.</p>
+     *
+     * <p>The test calls both {@code addTask(MyTask)} and
+     * {@code addOneShotTask(Runnable)} — the two overloads our code uses — and
+     * verifies they complete without throwing. If the stub (and therefore our
+     * compiled bytecode) ever drifts away from the real ImmPTL API again, this
+     * test will fail to compile, surfacing the mismatch at build time instead of
+     * at runtime inside the player\'s modpack.</p>
+     */
+    @GameTest(template = EMPTY, timeoutTicks = 20)
+    public static void clientTaskListAcceptsMyTask(GameTestHelper helper) {
+        // addTask(MyTask) — this is the signature used by the real ImmPTL jar.
+        // If the stub were still addTask(BooleanSupplier) this would not compile.
+        boolean[] ran = {false};
+        MyTaskList.MyTask task = () -> {
+            ran[0] = true;
+            return true; // one-shot: finished after first call
+        };
+
+        try {
+            IPGlobal.clientTaskList.addTask(task);
+        } catch (Throwable t) {
+            helper.fail("clientTaskList.addTask(MyTask) threw: " + t);
+            return;
+        }
+
+        // addOneShotTask(Runnable) — the simpler overload used in MiniScaledPortal.
+        boolean[] ran2 = {false};
+        try {
+            IPGlobal.clientTaskList.addOneShotTask(() -> ran2[0] = true);
+        } catch (Throwable t) {
+            helper.fail("clientTaskList.addOneShotTask(Runnable) threw: " + t);
+            return;
+        }
+
+        helper.succeed();
+    }
+
+    // -------------------------------------------------------------------------
+    // ImmPTL linkage verification
+    // -------------------------------------------------------------------------
+
+    /**
+     * Verifies via reflection that every ImmPTL / q_misc_util method and field
+     * that our code actually calls exists in the runtime jar with the exact
+     * signature our stubs declare.
+     *
+     * <p>This is the automated equivalent of the manual in-game crashes we have
+     * been fixing one by one (NoSuchMethodError, IncompatibleClassChangeError, …).
+     * If the test passes here but a crash still occurs in-game, the signature
+     * mismatch is in a class that we haven't stubbed yet — add it to this list.</p>
+     *
+     * <p>All failures are collected and reported together so you get the full
+     * list in one run instead of one crash at a time.</p>
+     */
+    @GameTest(template = EMPTY, timeoutTicks = 20)
+    public static void immPtlLinkageCheck(GameTestHelper helper) {
+        List<String> failures = new ArrayList<>();
+
+        // Utility: resolve a class, recording failure if not found.
+        // (Class.forName uses the runtime jar, not our compile-time stubs.)
+
+        // --- Portal fields ---
+        checkField(failures, Portal.class, double.class,  "scaling");
+        checkField(failures, Portal.class, boolean.class, "teleportChangesScale");
+        checkField(failures, Portal.class, boolean.class, "fuseView");
+        checkField(failures, Portal.class, boolean.class, "renderingMergable");
+        checkField(failures, Portal.class, boolean.class, "hasCrossPortalCollision");
+        checkField(failures, Portal.class, boolean.class, "doRenderPlayer");
+        checkField(failures, Portal.class, String.class,  "portalTag");
+
+        // --- Portal methods ---
+        checkMethod(failures, Portal.class, "getOriginWorld");
+        checkMethod(failures, Portal.class, "getOriginPos");
+        checkMethod(failures, Portal.class, "setOriginPos",          Vec3.class);
+        checkMethod(failures, Portal.class, "setDestination",        Vec3.class);
+        checkMethod(failures, Portal.class, "setDestinationDimension", net.minecraft.resources.ResourceKey.class);
+        checkMethod(failures, Portal.class, "setOrientation",        Vec3.class, Vec3.class);
+        checkMethod(failures, Portal.class, "setWidth",              double.class);
+        checkMethod(failures, Portal.class, "setHeight",             double.class);
+        checkMethod(failures, Portal.class, "setInteractable",       boolean.class);
+        checkMethod(failures, Portal.class, "setTeleportChangesGravity", boolean.class);
+        checkMethod(failures, Portal.class, "getScale");
+        checkMethod(failures, Portal.class, "getNormal");
+        checkMethod(failures, Portal.class, "allowOverlappedTeleport");
+        checkMethod(failures, Portal.class, "onCollidingWithEntity", Entity.class);
+        checkMethod(failures, Portal.class, "canTeleportEntity",     Entity.class);
+        checkMethod(failures, Portal.class, "getDistanceToNearestPointInPortal", Vec3.class);
+        checkMethod(failures, Portal.class, "transformVelocityRelativeToPortal", Vec3.class, Entity.class);
+
+        // --- PortalExtension ---
+        checkField(failures, PortalExtension.class, boolean.class, "adjustPositionAfterTeleport");
+        checkMethod(failures, PortalExtension.class, "get", Portal.class);
+
+        // --- PortalManipulation ---
+        checkMethod(failures, PortalManipulation.class, "createReversePortal", Portal.class, EntityType.class);
+
+        // --- McHelper ---
+        checkMethod(failures, McHelper.class, "getServerWorld",           net.minecraft.resources.ResourceKey.class);
+        checkMethod(failures, McHelper.class, "getOverWorldOnServer");
+        checkMethod(failures, McHelper.class, "spawnServerEntity",        Entity.class);
+        checkMethod(failures, McHelper.class, "updateBoundingBox",        Entity.class);
+        checkMethod(failures, McHelper.class, "getDimensionName",         net.minecraft.resources.ResourceKey.class);
+        checkMethod(failures, McHelper.class, "getRenderDistanceOnServer");
+
+        // --- IPGlobal fields (static, accessed directly) ---
+        checkField(failures, IPGlobal.class, MyTaskList.class, "clientTaskList");
+        checkField(failures, IPGlobal.class, MyTaskList.class, "serverTaskList");
+        checkField(failures, IPGlobal.class, boolean.class,    "enableDepthClampForPortalRendering");
+
+        // --- MyTaskList ---
+        checkInnerInterface(failures, "qouteall.q_misc_util.my_util.MyTaskList$MyTask", "runAndGetIsFinished");
+        checkMethod(failures, MyTaskList.class, "addTask",         MyTaskList.MyTask.class);
+        checkMethod(failures, MyTaskList.class, "addOneShotTask",  Runnable.class);
+        checkMethod(failures, MyTaskList.class, "oneShotTask",     Runnable.class);  // static factory
+
+        // --- PortalAPI ---
+        checkMethod(failures, PortalAPI.class, "addChunkLoaderForPlayer",
+            net.minecraft.server.level.ServerPlayer.class, ChunkLoader.class);
+        checkMethod(failures, PortalAPI.class, "removeChunkLoaderForPlayer",
+            net.minecraft.server.level.ServerPlayer.class, ChunkLoader.class);
+
+        // --- ServerTeleportationManager ---
+        checkMethod(failures, ServerTeleportationManager.class, "teleportEntityGeneral",
+            Entity.class, Vec3.class, ServerLevel.class);
+
+        // --- PortalCommand ---
+        checkMethod(failures, PortalCommand.class, "raytracePortals",
+            Level.class, Vec3.class, Vec3.class, boolean.class);
+
+        // --- McRemoteProcedureCall ---
+        checkMethod(failures, McRemoteProcedureCall.class, "tellServerToInvoke", String.class, Object[].class);
+        checkMethod(failures, McRemoteProcedureCall.class, "tellClientToInvoke",
+            net.minecraft.server.level.ServerPlayer.class, String.class, Object[].class);
+
+        // --- MiscHelper ---
+        checkMethod(failures, MiscHelper.class, "getServer");
+
+        // --- Helper ---
+        checkMethod(failures, Helper.class, "log",                       Object.class);
+        checkMethod(failures, Helper.class, "getAnotherFourDirections",  Direction.Axis.class);
+        checkMethod(failures, Helper.class, "getPerpendicularDirections", Direction.class);
+        checkMethod(failures, Helper.class, "getBoxSurface",             AABB.class, Direction.class);
+        checkMethod(failures, Helper.class, "getBoxSize",                AABB.class);
+        checkMethod(failures, Helper.class, "getCoordinate",             net.minecraft.core.Vec3i.class, Direction.Axis.class);
+        checkMethod(failures, Helper.class, "putCoordinate",             net.minecraft.core.Vec3i.class, Direction.Axis.class, int.class);
+        checkMethod(failures, Helper.class, "getVec3i",                  net.minecraft.nbt.CompoundTag.class, String.class);
+        checkMethod(failures, Helper.class, "putVec3i",                  net.minecraft.nbt.CompoundTag.class, String.class, net.minecraft.core.Vec3i.class);
+        checkMethod(failures, Helper.class, "secondToNano",              double.class);
+
+        // --- GravityChangerInterface: must still be an interface (not a class) ---
+        try {
+            Class<?> iface = Class.forName("qouteall.imm_ptl.core.compat.GravityChangerInterface");
+            if (!iface.isInterface()) {
+                failures.add("GravityChangerInterface is not an interface in this runtime — " +
+                    "Sinytra Connector may have transformed it into a class");
+            }
+            // The Invoker nested type also must be an interface
+            try {
+                Class<?> invoker = Class.forName("qouteall.imm_ptl.core.compat.GravityChangerInterface$Invoker");
+                if (!invoker.isInterface()) {
+                    failures.add("GravityChangerInterface$Invoker is not an interface — " +
+                        "getGravityVec() would throw IncompatibleClassChangeError (covered by runtime fallback in MSUtil)");
+                }
+            } catch (ClassNotFoundException e) {
+                failures.add("GravityChangerInterface$Invoker class not found: " + e.getMessage());
+            }
+        } catch (ClassNotFoundException e) {
+            failures.add("GravityChangerInterface class not found: " + e.getMessage());
+        }
+
+        if (!failures.isEmpty()) {
+            helper.fail(failures.size() + " ImmPTL linkage problem(s) detected:\n  - " +
+                String.join("\n  - ", failures));
+        } else {
+            helper.succeed();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Reflection helpers used by immPtlLinkageCheck
+    // -------------------------------------------------------------------------
+
+    /**
+     * Checks that {@code owner} declares (or inherits) a method named {@code name}
+     * with the given parameter types. Records a human-readable failure message if not.
+     */
+    private static void checkMethod(List<String> failures, Class<?> owner, String name, Class<?>... params) {
+        try {
+            // getDeclaredMethod only checks the exact class; getMethod also walks supers/interfaces.
+            // We use getMethod so that inherited methods (e.g. from Entity) are accepted.
+            owner.getMethod(name, params);
+        } catch (NoSuchMethodException e) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(owner.getSimpleName()).append('.').append(name).append('(');
+            for (int i = 0; i < params.length; i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(params[i].getSimpleName());
+            }
+            sb.append(") — method not found in runtime jar");
+            failures.add(sb.toString());
+        }
+    }
+
+    /**
+     * Checks that {@code owner} declares a field named {@code name} with the given type.
+     */
+    private static void checkField(List<String> failures, Class<?> owner, Class<?> type, String name) {
+        try {
+            Field f = findField(owner, name);
+            if (!f.getType().equals(type)) {
+                failures.add(owner.getSimpleName() + '.' + name +
+                    " — wrong type: expected " + type.getSimpleName() +
+                    " but runtime has " + f.getType().getSimpleName());
+            }
+        } catch (NoSuchFieldException e) {
+            failures.add(owner.getSimpleName() + '.' + name + " — field not found in runtime jar");
+        }
+    }
+
+    private static Field findField(Class<?> cls, String name) throws NoSuchFieldException {
+        Class<?> c = cls;
+        while (c != null) {
+            try {
+                return c.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                c = c.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(name);
+    }
+
+    /**
+     * Checks that an inner interface (specified by its binary name) exists and is
+     * actually an interface, and that it declares the given method name.
+     */
+    private static void checkInnerInterface(List<String> failures, String binaryName, String methodName) {
+        try {
+            Class<?> cls = Class.forName(binaryName);
+            if (!cls.isInterface()) {
+                failures.add(binaryName + " — should be an interface but is a class");
+            }
+            // just check any method with that name exists
+            boolean found = false;
+            for (Method m : cls.getMethods()) {
+                if (m.getName().equals(methodName)) { found = true; break; }
+            }
+            if (!found) {
+                failures.add(binaryName + '.' + methodName + "() — method not found");
+            }
+        } catch (ClassNotFoundException e) {
+            failures.add(binaryName + " — class not found: " + e.getMessage());
+        }
     }
 }
