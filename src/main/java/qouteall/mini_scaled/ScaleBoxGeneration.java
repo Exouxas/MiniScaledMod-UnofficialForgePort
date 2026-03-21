@@ -80,6 +80,7 @@ public class ScaleBoxGeneration {
             LOGGER.error("Void world is not loaded yet, cannot place scale box portals for entry {}", entry.id);
             return;
         }
+
         createScaleBoxPortals(voidWorld, world, entry);
         
         entry.getOuterAreaBox().stream().forEach(outerPos -> {
@@ -97,7 +98,7 @@ public class ScaleBoxGeneration {
         });
     }
     
-    private static void createScaleBoxPortals(
+    static void createScaleBoxPortals(
         ServerLevel innerWorld,
         ServerLevel outerWorld,
         ScaleBoxRecord.Entry entry
@@ -382,6 +383,65 @@ public class ScaleBoxGeneration {
         }
     }
     
+    /**
+     * Emergency reset: kills all portals for this entry and re-creates them.
+     * Used by the "Fix portals" GUI button.
+     *
+     * <p>We verify that the placeholder blocks actually exist before treating
+     * the box as "placed". {@link ScaleBoxPlaceholderBlockEntity#checkShouldRemovePortals}
+     * is a one-tick-deferred task, so {@code entry.currentEntranceDim} may still
+     * be non-null even when the blocks are already gone. Creating portals at an
+     * air position would leave broken floating portals and re-place placeholder
+     * blocks where none should be.</p>
+     */
+    public static void resetPortalsForEntry(ScaleBoxRecord.Entry entry) {
+        // Verify block state to decide whether the box is actually placed.
+        boolean isActuallyPlaced = false;
+        ServerLevel outerWorld = null;
+        if (entry.currentEntranceDim != null && entry.currentEntrancePos != null) {
+            outerWorld = McHelper.getServerWorld(entry.currentEntranceDim);
+            if (outerWorld != null) {
+                final ServerLevel outerWorldFinal = outerWorld;
+                isActuallyPlaced = entry.getOuterAreaBox().stream().allMatch(
+                    blockPos -> outerWorldFinal.getBlockState(blockPos).getBlock()
+                        == ScaleBoxPlaceholderBlock.instance
+                );
+            }
+        }
+
+        entry.generation++;
+        ScaleBoxRecord.get().setDirty(true);
+
+        // Kill outer portals (only search in the entrance world if we found it)
+        if (outerWorld != null && entry.currentEntrancePos != null) {
+            AABB searchBox = entry.getOuterAreaBox().toRealNumberBox().inflate(4);
+            outerWorld.getEntitiesOfClass(MiniScaledPortal.class, searchBox)
+                .stream()
+                .filter(p -> p.boxId == entry.id)
+                .forEach(Entity::discard);
+        }
+
+        // Kill inner / void portals
+        ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
+        if (voidWorld != null) {
+            AABB innerBB = entry.getInnerAreaBox().toRealNumberBox().inflate(4);
+            voidWorld.getEntitiesOfClass(MiniScaledPortal.class, innerBB)
+                .stream()
+                .filter(p -> p.boxId == entry.id)
+                .forEach(Entity::discard);
+        }
+
+        // Re-initialise the inner box (barrier blocks, chunk loading, glass frame)
+        initializeInnerBoxBlocks(entry.currentEntranceSize, entry);
+
+        // Re-create portals based on verified block state
+        if (isActuallyPlaced && voidWorld != null) {
+            createScaleBoxPortals(voidWorld, outerWorld, entry);
+        } else if (voidWorld != null) {
+            createInnerPortalsPointingToVoidUnderneath(entry);
+        }
+    }
+
     // will set dirty
     public static void updateScaleBoxPortals(
         ScaleBoxRecord.Entry entry,

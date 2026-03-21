@@ -60,8 +60,7 @@ public class ScaleBoxManagementScreen extends Screen {
     private double mouseX;
     private double mouseY;
     
-    private Animated<Double> pitchAnim = new Animated<>(
-        Animated.DOUBLE_TYPE_INFO,
+    private Animated<Double> pitchAnim = new Animated<>(        Animated.DOUBLE_TYPE_INFO,
         () -> RenderStates.renderStartNanoTime,
         TimingFunction.sine::mapProgress,
         0.0
@@ -82,7 +81,8 @@ public class ScaleBoxManagementScreen extends Screen {
     private @Nullable MultiLineLabel labelCache;
     
     private final Button optionsButton;
-    
+    private final Button fixPortalsButton;
+
     public static void init_() {
         // Don't render MiniScaled portals while the ScaleBox GUI is open.
         // ImmersivePortals (Forge) 3.0.7 fires DoRenderPortalEvent (cancellable) on MinecraftForge.EVENT_BUS.
@@ -138,7 +138,20 @@ public class ScaleBoxManagementScreen extends Screen {
             }
         ).build();
         optionsButton.visible = false;
-        
+
+        fixPortalsButton = Button.builder(
+            Component.literal("Fix portals"),
+            button -> {
+                if (selected != null) {
+                    McRemoteProcedureCall.tellServerToInvoke(
+                        "qouteall.mini_scaled.gui.ScaleBoxGuiManager.RemoteCallables.resetPortals",
+                        selected.id
+                    );
+                }
+            }
+        ).build();
+        fixPortalsButton.visible = false;
+
         if (guiData.boxId() != null) {
             ScaleBoxEntryWidget widget = listWidget.children().stream()
                 .filter(e -> e.entry.id == guiData.boxId())
@@ -162,6 +175,7 @@ public class ScaleBoxManagementScreen extends Screen {
         listWidget.setSelected(w);
         labelCache = null;
         optionsButton.visible = true;
+        fixPortalsButton.visible = true;
         McRemoteProcedureCall.tellServerToInvoke(
             "qouteall.mini_scaled.gui.ScaleBoxGuiManager.RemoteCallables.requestChunkLoading",
             w.entry.id
@@ -190,6 +204,12 @@ public class ScaleBoxManagementScreen extends Screen {
         optionsButton.setY(height - 10 - optionsButton.getHeight());
         
         addRenderableWidget(optionsButton);
+
+        fixPortalsButton.setWidth(100);
+        fixPortalsButton.setX(width - 10 - fixPortalsButton.getWidth());
+        fixPortalsButton.setY(height - 10 - optionsButton.getHeight() - 5 - fixPortalsButton.getHeight());
+
+        addRenderableWidget(fixPortalsButton);
     }
     
     @Override

@@ -14,6 +14,7 @@ import qouteall.imm_ptl.core.McHelper;
 import qouteall.imm_ptl.core.api.PortalAPI;
 import qouteall.imm_ptl.core.chunk_loading.ChunkLoader;
 import qouteall.mini_scaled.ScaleBoxGeneration;
+import qouteall.mini_scaled.ScaleBoxManipulation;
 import qouteall.mini_scaled.ScaleBoxRecord;
 import qouteall.mini_scaled.ducks.MiniScaled_MinecraftServerAccessor;
 import qouteall.q_misc_util.api.McRemoteProcedureCall;
@@ -178,6 +179,23 @@ public class ScaleBoxGuiManager {
                     entry.teleportChangesGravity = gravityTransform;
                     entry.accessControl = accessControl;
                 }
+            );
+        }
+
+        public static void resetPortals(ServerPlayer player, int boxId) {
+            ScaleBoxRecord rec = ScaleBoxRecord.get();
+            ScaleBoxRecord.Entry entry = rec.getEntryById(boxId);
+            if (entry == null) {
+                LOGGER.warn("resetPortals: invalid box id {} for player {}", boxId, player);
+                return;
+            }
+            if (!Objects.equals(entry.ownerId, player.getUUID())) {
+                ScaleBoxManipulation.showScaleBoxAccessDeniedMessage(player);
+                return;
+            }
+            ScaleBoxGeneration.resetPortalsForEntry(entry);
+            player.displayClientMessage(
+                net.minecraft.network.chat.Component.literal("Scale box portals reset."), false
             );
         }
     }

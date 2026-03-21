@@ -23,6 +23,7 @@ import qouteall.mini_scaled.block.BoxBarrierBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity;
 import qouteall.mini_scaled.item.ScaleBoxEntranceItem;
+import qouteall.mini_scaled.VoidDimension;
 import qouteall.q_misc_util.Helper;
 import qouteall.q_misc_util.my_util.AARotation;
 import qouteall.q_misc_util.my_util.IntBox;
@@ -59,7 +60,14 @@ public class ScaleBoxManipulation {
         if (world.isClientSide()) {
             return InteractionResult.FAIL;
         }
-        
+
+        // Disallow placing a scale-box entrance inside the scale-box void dimension.
+        // Doing so would move the entry into the inner world, breaking the portals
+        // and potentially stranding the player.
+        if (world.dimension() == VoidDimension.dimensionId) {
+            return InteractionResult.FAIL;
+        }
+
         if (context.getPlayer() == null) {
             return InteractionResult.FAIL;
         }
