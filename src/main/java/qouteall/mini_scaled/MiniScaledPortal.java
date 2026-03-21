@@ -53,7 +53,7 @@ public class MiniScaledPortal extends Portal {
         // change it to true
         setInteractable(true);
         
-        if (level().isClientSide()) {
+        if (getOriginWorld().isClientSide) {
             tickClient();
         }
         else {
@@ -67,8 +67,8 @@ public class MiniScaledPortal extends Portal {
                 }
             }
             
-            if (level().getGameTime() % 2 == 0) {
-                level().getProfiler().push("scale_box_portal_update");
+            if (getOriginWorld().getGameTime() % 2 == 0) {
+                getOriginWorld().getProfiler().push("scale_box_portal_update");
                 ScaleBoxRecord.Entry entry = scaleBoxRecord.getEntryById(boxId);
                 if (entry == null) {
                     LOGGER.error("no scale box record {} {}", boxId, this);
@@ -80,13 +80,13 @@ public class MiniScaledPortal extends Portal {
                 else {
                     checkStatus(entry);
                 }
-                level().getProfiler().pop();
+                getOriginWorld().getProfiler().pop();
             }
         }
     }
     
     private void checkStatus(ScaleBoxRecord.Entry entry) {
-        Validate.isTrue(!level().isClientSide());
+        Validate.isTrue(!getOriginWorld().isClientSide);
         if (isOuterPortal()) {
             if (entry.currentEntranceDim == null || entry.currentEntrancePos == null) {
                 LOGGER.error("Invalid record entry {}. Removing portal {}", entry, this);
@@ -123,7 +123,7 @@ public class MiniScaledPortal extends Portal {
         else {
             // the recordEntry field is added in newer versions of MiniScaled
             // so the old portals don't have that.
-            if (level().isClientSide()) {
+            if (getOriginWorld().isClientSide) {
                 recordEntry = null;
                 // it could be the void-pointing portal
                 // see ScaleBoxRecord.createInnerPortalsPointingToVoidUnderneath
@@ -161,7 +161,7 @@ public class MiniScaledPortal extends Portal {
     
     @Override
     public void onCollidingWithEntity(Entity entity) {
-        if (level().isClientSide()) {
+        if (getOriginWorld().isClientSide) {
             onCollidingWithEntityClientOnly(entity);
         }
         
@@ -178,7 +178,7 @@ public class MiniScaledPortal extends Portal {
                 Player player = (Player) entity;
                 if (player.getPose() == Pose.CROUCHING) {
                     IPGlobal.clientTaskList.addTask(() -> {
-                        if (player.level() == getOriginWorld()) {
+                        if (Minecraft.getInstance().level == getOriginWorld()) {
                             Vec3 posDelta = gravityVec.scale(0.01);
                             
                             // changing player pos immediately may cause ConcurrentModificationException

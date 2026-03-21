@@ -1,19 +1,33 @@
 package qouteall.mini_scaled.gametest;
 
+import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import qouteall.mini_scaled.MiniScaledPortal;
 import qouteall.mini_scaled.MiniScaledRegistries;
+import qouteall.mini_scaled.ScaleBoxEntranceCreation;
 import qouteall.mini_scaled.ScaleBoxRecord;
 import qouteall.mini_scaled.VoidDimension;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity;
 import qouteall.q_misc_util.my_util.AARotation;
+import qouteall.q_misc_util.my_util.IntBox;
 
 import java.util.UUID;
 
@@ -32,6 +46,9 @@ public class MiniScaledGameTests {
     // Forge prepends the lowercase class name, so the resolved path is
     // "miniscaledgametests.empty" → data/mini_scaled/structures/miniscaledgametests.empty.nbt
     private static final String EMPTY = "empty";
+
+    // 9×9×9 all-air zone used for tests that need to place a full glass frame.
+    private static final String FRAME9 = "frame9";
 
     // -------------------------------------------------------------------------
     // Registry checks
@@ -201,6 +218,88 @@ public class MiniScaledGameTests {
             helper.fail("MiniScaledPortal.entityType does not match the registered EntityType");
             return;
         }
+        helper.succeed();
+    }
+
+    // -------------------------------------------------------------------------
+    // Frame creation — interior clearing
+    // -------------------------------------------------------------------------
+
+    /**
+     * When a player converts a glass frame to a scale box item (by right-clicking with
+     * the creation item), the blocks INSIDE the frame must be cleared to air.
+     *
+     * <p>Test procedure:
+     * <ol>
+     *   <li>Build a 4×4×4 pink stained glass frame (12 edges only) at relative (2,2,2)–(5,5,5).
+     *   <li>Place an oak log at the interior position (3,3,3).
+     *   <li>Simulate right-click with a netherite ingot via a FakePlayer.
+     *   <li>Assert the interior position is now air.
+     * </ol>
+     *
+     * <p><b>This test FAILS before the fix</b> because
+     * {@code ScaleBoxEntranceCreation.onRightClickBoxFrameUsingNetherite} only removes the
+     * 12 edge strips and never clears the interior blocks.
+     *
+     * <p>Note: the {@code MiniScaledPortal.level()} crash (NoSuchMethodError in Sinytra
+     * Connector) cannot be reproduced in a standard Forge GameTest — it requires the
+     * Fabric-to-Forge bridge that replaces Entity.level() method dispatch. The fix
+     * (replacing every {@code level()} call with {@code getOriginWorld()}) is applied
+     * separately and verified by manual in-game testing.
+     */
+    @GameTest(template = FRAME9, timeoutTicks = 40)
+    public static void frameCreationClearsInteriorBlocks(GameTestHelper helper) {
+        // Ensure creationItem is set (normally done by onServerStarted via config).
+        ScaleBoxEntranceCreation.creationItem = Items.NETHERITE_INGOT;
+
+        ServerLevel serverLevel = helper.getLevel();
+
+        // Build a 4×4×4 pink stained glass frame (only the 12 edges) at relative (2,2,2).
+        BlockPos frameBase = helper.absolutePos(new BlockPos(2, 2, 2));
+        IntBox outerBox = IntBox.fromBasePointAndSize(frameBase, new BlockPos(4, 4, 4));
+        for (IntBox edge : outerBox.get12Edges()) {
+            edge.fastStream().forEach(p ->
+                serverLevel.setBlockAndUpdate(p, Blocks.PINK_STAINED_GLASS.defaultBlockState())
+            );
+        }
+
+        // Place a non-air block inside the frame (one block into the 2×2×2 interior).
+        BlockPos interiorPos = frameBase.offset(1, 1, 1);
+        serverLevel.setBlockAndUpdate(interiorPos, Blocks.OAK_LOG.defaultBlockState());
+
+        // Create a fake player adjacent to the frame, holding a netherite ingot.
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "test_frame_player");
+        var fakePlayer = FakePlayerFactory.get(serverLevel, profile);
+        fakePlayer.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.NETHERITE_INGOT));
+        fakePlayer.setPos(frameBase.getX() - 1.5, frameBase.getY() + 1.0, frameBase.getZ() + 1.5);
+
+        // Simulate right-click on the bottom-corner glass block of the frame.
+        Vec3 clickVec = Vec3.atCenterOf(frameBase);
+        BlockHitResult hitResult = new BlockHitResult(clickVec, Direction.UP, frameBase, false);
+
+        InteractionResult result = ScaleBoxEntranceCreation.onRightClickBlock(
+            fakePlayer, serverLevel, InteractionHand.MAIN_HAND, hitResult
+        );
+
+        if (result != InteractionResult.CONSUME) {
+            helper.fail("Frame creation should have succeeded (CONSUME) but returned: " + result +
+                ". Is the frame complete and the creation item set?");
+            return;
+        }
+
+        // Interior block must be air after the fix is applied.
+        // Before the fix this assertion fails because the oak log is left untouched.
+        BlockState interiorState = serverLevel.getBlockState(interiorPos);
+        if (!interiorState.isAir()) {
+            helper.fail(
+                "Interior blocks were NOT cleared after frame creation. " +
+                "Expected air at " + interiorPos + " but found: " + interiorState.getBlock() +
+                ". Fix: add IntBox.getAdjusted(1,1,1,-1,-1,-1) clearing in " +
+                "ScaleBoxEntranceCreation.onRightClickBoxFrameUsingNetherite."
+            );
+            return;
+        }
+
         helper.succeed();
     }
 }
