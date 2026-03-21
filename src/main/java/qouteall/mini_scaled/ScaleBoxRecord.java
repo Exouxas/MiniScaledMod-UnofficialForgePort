@@ -10,6 +10,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.ChunkPos;
@@ -47,7 +48,13 @@ public class ScaleBoxRecord extends SavedData {
     }
     
     public static ScaleBoxRecord get() {
-        ServerLevel overworld = MiscHelper.getServer().overworld();
+        MinecraftServer server = MiscHelper.getServer();
+        if (server == null) {
+            throw new IllegalStateException(
+                "ScaleBoxRecord.get() called with no running server. " +
+                "ScaleBoxRecord is server-side data and must not be accessed while the server is unavailable.");
+        }
+        ServerLevel overworld = server.overworld();
         
         return overworld.getDataStorage().computeIfAbsent(
             (nbt) -> {

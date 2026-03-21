@@ -19,6 +19,7 @@ import qouteall.mini_scaled.ScaleBoxGeneration;
 import qouteall.mini_scaled.ScaleBoxManipulation;
 import qouteall.mini_scaled.ScaleBoxRecord;
 import qouteall.mini_scaled.util.MSUtil;
+import qouteall.q_misc_util.MiscHelper;
 
 import java.util.List;
 import java.util.UUID;
@@ -145,6 +146,11 @@ public class ScaleBoxEntranceItem extends Item {
     
     @Nullable
     public static ItemStack boxIdToItem(int boxId) {
+        // Guard against being called during server shutdown or before the server is ready.
+        // In that case, silently return null so callers (e.g. block-removal item drops) skip the drop.
+        if (MiscHelper.getServer() == null) {
+            return null;
+        }
         ScaleBoxRecord.Entry entry = ScaleBoxRecord.get().getEntryById(boxId);
         if (entry == null) {
             LOGGER.info("invalid boxId for item {}", boxId);
