@@ -95,10 +95,10 @@ dependencies {
 	// ImmersivePortals for Forge (Forge builds are expected in mavenLocal or another Maven repo)
 	// Default is to use compile-only stubs to keep builds self-contained.
 	if (useRealImmersivePortalsDeps) {
-		// ImmPTL 3.0.7 ships as a single "all" jar; install it to local Maven under
-		// both coordinates (see Dockerfile / setup instructions).
-		implementation fg.deobf('qouteall:imm_ptl_core:3.0.7')
-		implementation fg.deobf('qouteall:q_misc_util:3.0.7')
+		// ImmPTL 3.0.7 ships as a single "all" jar containing both qouteall.imm_ptl.*
+		// and qouteall.q_misc_util.* packages. Install it to local Maven as
+		// qouteall:immersive-portals-all:3.0.7 (see Dockerfile).
+		implementation fg.deobf('qouteall:immersive-portals-all:3.0.7')
 	}
 
 		implementation "me.shedaniel.cloth:cloth-config-forge:${cloth_config_version}"

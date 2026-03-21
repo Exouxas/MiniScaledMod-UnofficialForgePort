@@ -27,20 +27,14 @@ ARG IMMPTL_SHA1=b4a6d71ca7dc07a1da33e7272befabc6ce95057b
 RUN curl -fL -o immptl-all.jar "${IMMPTL_URL}" \
     && echo "${IMMPTL_SHA1}  immptl-all.jar" | sha1sum -c -
 
-# ─── Step 2: Install the single "all" jar to local Maven under both coordinates ─
-# ImmPTL 3.x ships as one combined jar containing both imm_ptl_core and
-# q_misc_util packages.  ForgeGradle's fg.deobf() expects each as its own Maven
-# artifact, so we install the same jar under both groupId:artifactId pairs.
+# ─── Step 2: Install the "all" jar to local Maven ────────────────────────────
+# ImmPTL 3.x ships as one combined jar containing both qouteall.imm_ptl.* and
+# qouteall.q_misc_util.* package trees (confirmed by inspecting the jar).
+# We install it once under the coordinate that build.gradle references.
 RUN mvn --no-transfer-progress install:install-file \
         -Dfile=immptl-all.jar \
         -DgroupId=qouteall \
-        -DartifactId=imm_ptl_core \
-        -Dversion=${IMMPTL_VERSION} \
-        -Dpackaging=jar \
-    && mvn --no-transfer-progress install:install-file \
-        -Dfile=immptl-all.jar \
-        -DgroupId=qouteall \
-        -DartifactId=q_misc_util \
+        -DartifactId=immersive-portals-all \
         -Dversion=${IMMPTL_VERSION} \
         -Dpackaging=jar
 
