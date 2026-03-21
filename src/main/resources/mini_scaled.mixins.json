@@ -9,7 +9,6 @@
     "common.MixinMinecraftServer"
   ],
   "client": [
-    "client.MixinItemColors",
     "client.MixinSkyProperties"
   ],
   "injectors": {

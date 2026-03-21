@@ -4,12 +4,14 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import qouteall.imm_ptl.core.render.PortalEntityRenderer;
 import qouteall.mini_scaled.gui.ScaleBoxManagementScreen;
+import qouteall.mini_scaled.item.ScaleBoxEntranceItem;
 
 @OnlyIn(Dist.CLIENT)
 public class MiniScaledModInitializerClient {
@@ -17,7 +19,15 @@ public class MiniScaledModInitializerClient {
     public static void registerClientEvents(IEventBus modEventBus) {
         modEventBus.addListener(MiniScaledModInitializerClient::onRegisterRenderers);
         modEventBus.addListener(MiniScaledModInitializerClient::onFMLClientSetup);
+        modEventBus.addListener(MiniScaledModInitializerClient::onRegisterItemColors);
         MinecraftForge.EVENT_BUS.addListener(MiniScaledModInitializerClient::onClientTick);
+    }
+
+    private static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
+        event.register(
+            (stack, tintIndex) -> ScaleBoxEntranceItem.getRenderingColor(stack),
+            ScaleBoxEntranceItem.instance
+        );
     }
     
     @SuppressWarnings("unchecked")
