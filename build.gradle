@@ -49,6 +49,7 @@ minecraft {
 			mods {
 				mini_scaled {
 					source sourceSets.main
+					source sourceSets.ipstubs
 				}
 			}
 		}
@@ -61,6 +62,19 @@ minecraft {
 			mods {
 				mini_scaled {
 					source sourceSets.main
+					source sourceSets.ipstubs
+				}
+			}
+		}
+		gameTestServer {
+			workingDirectory project.file('run')
+			property 'forge.logging.console.level', 'debug'
+			property 'mixin.env.remapRefMap', 'true'
+			property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+			mods {
+				mini_scaled {
+					source sourceSets.main
+					source sourceSets.ipstubs
 				}
 			}
 		}
@@ -110,6 +124,14 @@ if (!useRealImmersivePortalsDeps) {
 	tasks.named('test').configure {
 		classpath += files(sourceSets.ipstubs.output.classesDirs)
 	}
+	// Also put stubs on the game-test server runtime so the mod loads without real ImmPTL.
+	// ForgeGradle creates the runGameTestServer task late, so use withType on JavaExec.
+	afterEvaluate {
+		tasks.withType(JavaExec).matching { it.name == 'runGameTestServer' }.configureEach {
+			dependsOn tasks.named('compileIpstubsJava')
+			classpath += files(sourceSets.ipstubs.output.classesDirs)
+		}
+	}
 }
 
 mixin {
@@ -117,7 +139,60 @@ mixin {
 	config 'mini_scaled.mixins.json'
 }
 
+// Generate the empty 3×3×3 air structure template used by GameTest methods.
+// Minecraft structure files are gzip-compressed NBT; we build the bytes in Groovy
+// to avoid needing a running game instance at build time.
+// Output goes into build/ (never src/) so Gradle can track task dependencies cleanly.
+def generatedStructuresDir = file("${buildDir}/generated/structures")
+
+task generateTestStructures {
+	// Forge prepends the lowercase class name to the template, so the structure
+	// is looked up as 'miniscaledgametests.empty' inside the mini_scaled namespace.
+	def outputFile = new File(generatedStructuresDir, "data/mini_scaled/structures/miniscaledgametests.empty.nbt")
+	outputs.dir(generatedStructuresDir)
+	doLast {
+		// Uncompressed NBT for a 3×3×3 all-air structure (DataVersion 3463 = 1.20.1)
+		int[] rawInts = [
+			// TAG_Compound root (type=10, name-len=0)
+			0x0A, 0x00, 0x00,
+			// TAG_Int "DataVersion" = 3463 (0x00000D87)
+			0x03, 0x00, 0x0B, 0x44, 0x61, 0x74, 0x61, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E,
+			0x00, 0x00, 0x0D, 0x87,
+			// TAG_List "size" = [3,3,3] (element-type=TAG_Int)
+			0x09, 0x00, 0x04, 0x73, 0x69, 0x7A, 0x65,
+			0x03, 0x00, 0x00, 0x00, 0x03,
+			0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x03,
+			// TAG_String "author" = "test"
+			0x08, 0x00, 0x06, 0x61, 0x75, 0x74, 0x68, 0x6F, 0x72,
+			0x00, 0x04, 0x74, 0x65, 0x73, 0x74,
+			// TAG_List "palette" (empty, element-type=TAG_Compound)
+			0x09, 0x00, 0x07, 0x70, 0x61, 0x6C, 0x65, 0x74, 0x74, 0x65,
+			0x0A, 0x00, 0x00, 0x00, 0x00,
+			// TAG_List "blocks" (empty)
+			0x09, 0x00, 0x06, 0x62, 0x6C, 0x6F, 0x63, 0x6B, 0x73,
+			0x0A, 0x00, 0x00, 0x00, 0x00,
+			// TAG_List "entities" (empty)
+			0x09, 0x00, 0x08, 0x65, 0x6E, 0x74, 0x69, 0x74, 0x69, 0x65, 0x73,
+			0x0A, 0x00, 0x00, 0x00, 0x00,
+			// TAG_End
+			0x00
+		]
+		byte[] raw = new byte[rawInts.length]
+		for (int i = 0; i < rawInts.length; i++) { raw[i] = (byte) rawInts[i] }
+		outputFile.parentFile.mkdirs()
+		def baos = new java.io.ByteArrayOutputStream()
+		def gzos = new java.util.zip.GZIPOutputStream(baos)
+		gzos.write(raw)
+		gzos.close()
+		outputFile.bytes = baos.toByteArray()
+	}
+}
+
 processResources {
+	// Include the generated empty structure template for GameTest.
+	// Using from() rather than sourceSets srcDir so sourcesJar is not affected.
+	from(generateTestStructures)
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 	inputs.property "version", project.version
 
 	filesMatching("META-INF/mods.toml") {

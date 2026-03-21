@@ -56,10 +56,16 @@ public class Helper {
     }
 
     public static BlockPos getVec3i(CompoundTag tag, String key) {
-        return BlockPos.ZERO;
+        CompoundTag sub = tag.getCompound(key);
+        return new BlockPos(sub.getInt("x"), sub.getInt("y"), sub.getInt("z"));
     }
 
     public static void putVec3i(CompoundTag tag, String key, Vec3i pos) {
+        CompoundTag sub = new CompoundTag();
+        sub.putInt("x", pos.getX());
+        sub.putInt("y", pos.getY());
+        sub.putInt("z", pos.getZ());
+        tag.put(key, sub);
     }
 
     public static long secondToNano(double seconds) {

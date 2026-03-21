@@ -61,7 +61,11 @@ public class MiniScaledModInitializer {
         qouteall.q_misc_util.api.DimensionAPI.serverDimensionsLoadEvent.register(
             (worldOptions, registryAccess) -> VoidDimension.initializeVoidDimension(registryAccess)
         );
-        
+
+        // Register GameTest classes so ./gradlew runGameTestServer picks them up.
+        // @GameTestHolder on MiniScaledGameTests is sufficient for auto-discovery in Forge 47.x.
+        // No explicit RegisterGameTestsEvent needed.
+
         // Register config
         MSGlobal.config = AutoConfig.register(MiniScaledConfig.class, GsonConfigSerializer::new);
         
