@@ -26,6 +26,7 @@ import qouteall.mini_scaled.ScaleBoxRecord;
 import qouteall.mini_scaled.VoidDimension;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock;
 import qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity;
+import qouteall.mini_scaled.util.MSUtil;
 import qouteall.q_misc_util.my_util.AARotation;
 import qouteall.q_misc_util.my_util.IntBox;
 
@@ -298,6 +299,85 @@ public class MiniScaledGameTests {
                 "ScaleBoxEntranceCreation.onRightClickBoxFrameUsingNetherite."
             );
             return;
+        }
+
+        helper.succeed();
+    }
+
+    // -------------------------------------------------------------------------
+    // MSUtil.getGravityVec — Sinytra Connector compatibility
+    // -------------------------------------------------------------------------
+
+    /**
+     * {@code MSUtil.getGravityVec} must never throw when called with a live entity.
+     *
+     * <p>In Sinytra Connector environments, {@code GravityChangerInterface$Invoker}
+     * is transformed from an interface into a class, causing an
+     * {@code IncompatibleClassChangeError} (a {@link LinkageError}) on the first
+     * {@code invokeinterface} bytecall. The fix adds a try-catch with a static
+     * broken-flag so subsequent calls short-circuit to the {@code DOWN} fallback.
+     *
+     * <p>In the standard Forge GameTest environment (no Sinytra Connector) the
+     * stub implementation correctly defines {@code Invoker} as an interface and
+     * returns {@link Direction#DOWN}, so this test exercises the happy path and
+     * confirms the return value is a valid unit vector. The broken-flag path is
+     * exercised by {@link #getGravityVecFallbackWhenBroken}.
+     */
+    @GameTest(template = EMPTY, timeoutTicks = 20)
+    public static void getGravityVecDoesNotThrow(GameTestHelper helper) {
+        // Reset the broken flag so this test always checks the live path.
+        MSUtil.gravityInterfaceBroken = false;
+
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "gravity_test_player");
+        var fakePlayer = FakePlayerFactory.get(helper.getLevel(), profile);
+
+        Vec3 gravity;
+        try {
+            gravity = MSUtil.getGravityVec(fakePlayer);
+        } catch (Throwable t) {
+            helper.fail("MSUtil.getGravityVec threw unexpectedly: " + t);
+            return;
+        }
+
+        if (gravity == null) {
+            helper.fail("MSUtil.getGravityVec returned null");
+            return;
+        }
+        double len = gravity.length();
+        if (Math.abs(len - 1.0) > 0.001) {
+            helper.fail("Expected a unit vector from getGravityVec, got length " + len + ": " + gravity);
+            return;
+        }
+
+        helper.succeed();
+    }
+
+    /**
+     * When the {@code gravityInterfaceBroken} flag is set (simulating the
+     * Sinytra Connector {@code IncompatibleClassChangeError} scenario), {@code getGravityVec}
+     * must return the {@link Direction#DOWN} fallback vector {@code (0, -1, 0)}
+     * without attempting to call {@code GravityChangerInterface.invoker}.
+     */
+    @GameTest(template = EMPTY, timeoutTicks = 20)
+    public static void getGravityVecFallbackWhenBroken(GameTestHelper helper) {
+        boolean savedFlag = MSUtil.gravityInterfaceBroken;
+        MSUtil.gravityInterfaceBroken = true;
+        try {
+            GameProfile profile = new GameProfile(UUID.randomUUID(), "gravity_broken_player");
+            var fakePlayer = FakePlayerFactory.get(helper.getLevel(), profile);
+
+            Vec3 gravity = MSUtil.getGravityVec(fakePlayer);
+
+            if (gravity == null) {
+                helper.fail("getGravityVec returned null when gravityInterfaceBroken=true");
+                return;
+            }
+            if (gravity.x != 0 || gravity.y != -1 || gravity.z != 0) {
+                helper.fail("Expected fallback (0,-1,0) but got: " + gravity);
+                return;
+            }
+        } finally {
+            MSUtil.gravityInterfaceBroken = savedFlag;
         }
 
         helper.succeed();

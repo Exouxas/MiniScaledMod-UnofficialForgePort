@@ -71,10 +71,25 @@ public class MSUtil {
         }
     }
     
+    // In Sinytra Connector environments, GravityChangerInterface$Invoker can be
+    // transformed from an interface to a class, causing IncompatibleClassChangeError
+    // on the first call. This flag short-circuits all subsequent calls so the JVM
+    // does not keep throwing (and re-catching) an expensive Error on every tick.
+    public static boolean gravityInterfaceBroken = false;
+
     public static Vec3 getGravityVec(Entity entity) {
-        Direction gravity = GravityChangerInterface.invoker.getGravityDirection(entity);
-        Vec3 gravityVec = Vec3.atLowerCornerOf(gravity.getNormal());
-        return gravityVec;
+        if (gravityInterfaceBroken) {
+            return new Vec3(0, -1, 0);
+        }
+        try {
+            Direction gravity = GravityChangerInterface.invoker.getGravityDirection(entity);
+            return Vec3.atLowerCornerOf(gravity.getNormal());
+        } catch (LinkageError e) {
+            // GravityChangerInterface$Invoker is a class instead of an interface in this
+            // environment — fall back to normal downward gravity and stop retrying.
+            gravityInterfaceBroken = true;
+            return new Vec3(0, -1, 0);
+        }
     }
     
     public static BlockPos getSpawnPos(Level world) {
