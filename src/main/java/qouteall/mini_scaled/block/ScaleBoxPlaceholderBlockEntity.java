@@ -185,13 +185,12 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
         if (entranceWorld == null) {
             // The entrance dimension no longer exists — treat as destroyed.
             LOGGER.warn("Scale box {} entrance dimension {} is gone, clearing entrance", boxId, currentEntranceDim);
-            BlockPos lastPos = entry.currentEntrancePos;
+            // Outer world is gone so we can't reach those portals; just clear the list.
+            entry.outerPortalIds.clear();
             entry.currentEntranceDim = null;
             record.setDirty(true);
             notifyPortalBreak(boxId);
-            ScaleBoxGeneration.killStalePortals(
-                boxId, entry.generation, currentEntranceDim, lastPos, entry
-            );
+            // Kill old inner portals by UUID and create new void-pointing ones.
             ScaleBoxGeneration.createInnerPortalsPointingToVoidUnderneath(entry);
             return;
         }
@@ -211,17 +210,16 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
         
         if (!blocksValid) {
             // Case 3: entrance actually destroyed.
+            // Kill the outer portals directly by UUID — entranceWorld is already resolved above.
+            ScaleBoxGeneration.killPortalsByIds(entry.outerPortalIds, entranceWorld);
+
             entry.currentEntranceDim = null;
             record.setDirty(true);
-
+            // Increment generation as a secondary safety net for any portals in unloaded
+            // chunks that couldn't be reached by UUID — they self-discard within 2 ticks.
             notifyPortalBreak(boxId);
 
-            // Directly kill stale portal entities so they disappear immediately
-            // rather than waiting for the per-portal generation tick check.
-            ScaleBoxGeneration.killStalePortals(
-                boxId, entry.generation, currentEntranceDim, entry.currentEntrancePos, entry
-            );
-
+            // Kill old inner portals by UUID and create new void-pointing ones.
             ScaleBoxGeneration.createInnerPortalsPointingToVoidUnderneath(entry);
         }
     }

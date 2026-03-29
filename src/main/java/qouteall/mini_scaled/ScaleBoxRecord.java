@@ -8,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -160,7 +161,15 @@ public class ScaleBoxRecord extends SavedData {
         public boolean teleportChangesScale = false;
         public boolean teleportChangesGravity = false;
         public boolean accessControl = false;
-        
+
+        // Persisted UUIDs of the 12 portal entities belonging to this box.
+        // outerPortalIds: 6 portals in the entrance dimension (outer world → void dimension).
+        // innerPortalIds: 6 portals in the void dimension (void → outer, or void → void when unplaced).
+        // Lists are empty for entries created before UUID tracking was added;
+        // in that case the per-portal generation tick handles stale-portal cleanup.
+        public ArrayList<UUID> outerPortalIds = new ArrayList<>();
+        public ArrayList<UUID> innerPortalIds = new ArrayList<>();
+
         public Entry() {
         
         }
@@ -281,6 +290,17 @@ public class ScaleBoxRecord extends SavedData {
             else {
                 accessControl = false;
             }
+
+            outerPortalIds.clear();
+            if (tag.contains("outerPortalIds", net.minecraft.nbt.Tag.TAG_LIST)) {
+                ListTag outerList = tag.getList("outerPortalIds", 11); // 11 = TAG_INT_ARRAY
+                outerList.forEach(t -> outerPortalIds.add(NbtUtils.loadUUID(t)));
+            }
+            innerPortalIds.clear();
+            if (tag.contains("innerPortalIds", net.minecraft.nbt.Tag.TAG_LIST)) {
+                ListTag innerList = tag.getList("innerPortalIds", 11);
+                innerList.forEach(t -> innerPortalIds.add(NbtUtils.loadUUID(t)));
+            }
         }
         
         void writeToNbt(CompoundTag tag) {
@@ -302,6 +322,13 @@ public class ScaleBoxRecord extends SavedData {
             tag.putBoolean("teleportChangesScale", teleportChangesScale);
             tag.putBoolean("teleportChangesGravity", teleportChangesGravity);
             tag.putBoolean("accessControl", accessControl);
+
+            ListTag outerIdList = new ListTag();
+            for (UUID id : outerPortalIds) { outerIdList.add(NbtUtils.createUUID(id)); }
+            tag.put("outerPortalIds", outerIdList);
+            ListTag innerIdList = new ListTag();
+            for (UUID id : innerPortalIds) { innerIdList.add(NbtUtils.createUUID(id)); }
+            tag.put("innerPortalIds", innerIdList);
         }
         
         public static Entry fromTag(CompoundTag tag) {

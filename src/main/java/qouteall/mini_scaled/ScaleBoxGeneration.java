@@ -38,6 +38,7 @@ import qouteall.q_misc_util.my_util.DQuaternion;
 import qouteall.q_misc_util.my_util.IntBox;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -61,9 +62,12 @@ public class ScaleBoxGeneration {
             }
         }
         
-        // Capture old placement before overwriting so we can kill any stale portals.
+        // Kill all registered portals before creating new ones.
+        // Do this before updating the entry so we still know the old entrance dimension.
+        ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
         ResourceKey<Level> oldDim = entry.currentEntranceDim;
-        BlockPos oldPos = entry.currentEntrancePos;
+        killPortalsByIds(entry.outerPortalIds, oldDim != null ? McHelper.getServerWorld(oldDim) : null);
+        killPortalsByIds(entry.innerPortalIds, voidWorld);
 
         entry.currentEntranceDim = world.dimension();
         entry.currentEntrancePos = outerBoxBasePos;
@@ -72,10 +76,6 @@ public class ScaleBoxGeneration {
 
         ScaleBoxRecord.get().setDirty(true);
 
-        // Directly kill any lingering portals from the previous placement.
-        killStalePortals(entry.id, entry.generation, oldDim, oldPos, entry);
-
-        ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
         if (voidWorld == null) {
             LOGGER.error("Void world is not loaded yet, cannot place scale box portals for entry {}", entry.id);
             return;
@@ -112,6 +112,8 @@ public class ScaleBoxGeneration {
         DQuaternion quaternion = toInnerRotation.matrix.toQuaternion();
         int boxId = entry.id;
         int generation = entry.generation;
+        entry.outerPortalIds.clear();
+        entry.innerPortalIds.clear();
         
         for (Direction outerDirection : Direction.values()) {
             MiniScaledPortal portal = MiniScaledPortal.entityType.create(outerWorld);
@@ -148,6 +150,7 @@ public class ScaleBoxGeneration {
             portal.recordEntry = entry;
             
             McHelper.spawnServerEntity(portal);
+            entry.outerPortalIds.add(portal.getUUID());
             
             MiniScaledPortal reversePortal =
                 PortalManipulation.createReversePortal(portal, MiniScaledPortal.entityType);
@@ -171,7 +174,9 @@ public class ScaleBoxGeneration {
             reversePortal.doRenderPlayer = false;
             
             McHelper.spawnServerEntity(reversePortal);
+            entry.innerPortalIds.add(reversePortal.getUUID());
         }
+        ScaleBoxRecord.get().setDirty(true);
     }
     
     
@@ -345,6 +350,28 @@ public class ScaleBoxGeneration {
     }
 
     /**
+     * Kills portal entities identified by the given UUID list and clears the list.
+     * Entities in unloaded chunks are silently skipped — the portal's own generation
+     * tick will discard them once the chunk loads again.
+     *
+     * <p>The list is always cleared, even when {@code world} is {@code null} or entities
+     * cannot be reached, so that the entry's UUID records stay consistent with intended state.</p>
+     */
+    public static void killPortalsByIds(List<UUID> ids, @Nullable ServerLevel world) {
+        if (!ids.isEmpty()) {
+            if (world != null) {
+                for (UUID id : ids) {
+                    Entity e = world.getEntity(id);
+                    if (e != null) {
+                        e.discard();
+                    }
+                }
+            }
+            ids.clear();
+        }
+    }
+
+    /**
      * Immediately discards all {@link MiniScaledPortal} entities for the given
      * box whose generation is strictly less than {@code newGeneration}.
      * Called proactively so portals disappear at once rather than waiting up to
@@ -395,46 +422,33 @@ public class ScaleBoxGeneration {
      * blocks where none should be.</p>
      */
     public static void resetPortalsForEntry(ScaleBoxRecord.Entry entry) {
-        // Verify block state to decide whether the box is actually placed.
-        boolean isActuallyPlaced = false;
-        ServerLevel outerWorld = null;
-        if (entry.currentEntranceDim != null && entry.currentEntrancePos != null) {
-            outerWorld = McHelper.getServerWorld(entry.currentEntranceDim);
-            if (outerWorld != null) {
-                final ServerLevel outerWorldFinal = outerWorld;
-                isActuallyPlaced = entry.getOuterAreaBox().stream().allMatch(
-                    blockPos -> outerWorldFinal.getBlockState(blockPos).getBlock()
-                        == ScaleBoxPlaceholderBlock.instance
-                );
-            }
-        }
+        ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
+
+        // Kill all registered portals by UUID before re-creating.
+        ServerLevel outerWorld = entry.currentEntranceDim != null
+            ? McHelper.getServerWorld(entry.currentEntranceDim) : null;
+        killPortalsByIds(entry.outerPortalIds, outerWorld);
+        killPortalsByIds(entry.innerPortalIds, voidWorld);
 
         entry.generation++;
         ScaleBoxRecord.get().setDirty(true);
 
-        // Kill outer portals (only search in the entrance world if we found it)
+        // Verify block state to decide whether the box is actually placed.
+        boolean isActuallyPlaced = false;
         if (outerWorld != null && entry.currentEntrancePos != null) {
-            AABB searchBox = entry.getOuterAreaBox().toRealNumberBox().inflate(4);
-            outerWorld.getEntitiesOfClass(MiniScaledPortal.class, searchBox)
-                .stream()
-                .filter(p -> p.boxId == entry.id)
-                .forEach(Entity::discard);
-        }
-
-        // Kill inner / void portals
-        ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
-        if (voidWorld != null) {
-            AABB innerBB = entry.getInnerAreaBox().toRealNumberBox().inflate(4);
-            voidWorld.getEntitiesOfClass(MiniScaledPortal.class, innerBB)
-                .stream()
-                .filter(p -> p.boxId == entry.id)
-                .forEach(Entity::discard);
+            final ServerLevel outerWorldFinal = outerWorld;
+            isActuallyPlaced = entry.getOuterAreaBox().stream().allMatch(
+                blockPos -> outerWorldFinal.getBlockState(blockPos).getBlock()
+                    == ScaleBoxPlaceholderBlock.instance
+            );
         }
 
         // Re-initialise the inner box (barrier blocks, chunk loading, glass frame)
         initializeInnerBoxBlocks(entry.currentEntranceSize, entry);
 
-        // Re-create portals based on verified block state
+        // Re-create portals based on verified block state.
+        // createScaleBoxPortals / createInnerPortalsPointingToVoidUnderneath
+        // will populate the UUID lists and call setDirty.
         if (isActuallyPlaced && voidWorld != null) {
             createScaleBoxPortals(voidWorld, outerWorld, entry);
         } else if (voidWorld != null) {
@@ -461,6 +475,19 @@ public class ScaleBoxGeneration {
      * {@link #createInnerPortalsPointingToVoidUnderneath}).  The reconciler is a pure
      * defensive sweep: it only removes what shouldn't be there.</p>
      */
+    /**
+     * Periodic safety sweep called every ~100 ticks from the server tick event.
+     *
+     * <p>For each entry this does two things:</p>
+     * <ol>
+     *   <li><b>State verification</b> — if the entrance dimension is gone or its blocks are
+     *       absent (chunk loaded), drives the full cleanup sequence.</li>
+     *   <li><b>UUID-based orphan sweep</b> — discards any {@link MiniScaledPortal} found in
+     *       the expected spatial region whose UUID is not in the entry's registered lists.
+     *       Skipped for entries with empty UUID lists (pre-UUID-tracking worlds) to preserve
+     *       backward compatibility — those fall back to the per-portal generation tick.</li>
+     * </ol>
+     */
     public static void reconcilePortals() {
         ScaleBoxRecord record = ScaleBoxRecord.get();
         ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
@@ -470,17 +497,15 @@ public class ScaleBoxGeneration {
             if (entry.currentEntranceDim != null && entry.currentEntrancePos != null) {
                 ServerLevel outerWorld = McHelper.getServerWorld(entry.currentEntranceDim);
                 if (outerWorld == null) {
-                    // Entrance dimension no longer exists.
                     LOGGER.warn(
                         "reconcilePortals: scale box {} entrance dim {} is gone — clearing entrance",
                         entry.id, entry.currentEntranceDim
                     );
-                    ResourceKey<Level> oldDim = entry.currentEntranceDim;
-                    BlockPos oldPos = entry.currentEntrancePos;
+                    // Outer world is gone; can't reach those portals — just clear the list.
+                    entry.outerPortalIds.clear();
                     entry.currentEntranceDim = null;
-                    record.setDirty(true);
                     entry.generation++;
-                    killStalePortals(entry.id, entry.generation, oldDim, oldPos, entry);
+                    record.setDirty(true);
                     if (voidWorld != null) {
                         createInnerPortalsPointingToVoidUnderneath(entry);
                     }
@@ -491,19 +516,17 @@ public class ScaleBoxGeneration {
                 if (outerWorld.hasChunkAt(entry.currentEntrancePos)) {
                     boolean blocksValid = entry.getOuterAreaBox().stream().allMatch(
                         pos -> outerWorld.getBlockState(pos).getBlock()
-                            == qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock.instance
+                            == ScaleBoxPlaceholderBlock.instance
                     );
                     if (!blocksValid) {
                         LOGGER.warn(
                             "reconcilePortals: scale box {} entrance blocks missing — clearing entrance",
                             entry.id
                         );
-                        ResourceKey<Level> oldDim = entry.currentEntranceDim;
-                        BlockPos oldPos = entry.currentEntrancePos;
+                        killPortalsByIds(entry.outerPortalIds, outerWorld);
                         entry.currentEntranceDim = null;
-                        record.setDirty(true);
                         entry.generation++;
-                        killStalePortals(entry.id, entry.generation, oldDim, oldPos, entry);
+                        record.setDirty(true);
                         if (voidWorld != null) {
                             createInnerPortalsPointingToVoidUnderneath(entry);
                         }
@@ -512,27 +535,28 @@ public class ScaleBoxGeneration {
                 }
             }
 
-            // --- Step 2: kill portals with a stale generation ---
-            int expectedGeneration = entry.generation;
-
-            if (entry.currentEntranceDim != null && entry.currentEntrancePos != null) {
+            // --- Step 2: UUID-based orphan sweep ---
+            // Only run if we have a complete UUID record for this entry.
+            // Entries from before UUID tracking have empty lists; for those,
+            // the per-portal generation tick provides the safety net.
+            if (!entry.outerPortalIds.isEmpty() && entry.currentEntranceDim != null) {
                 ServerLevel outerWorld = McHelper.getServerWorld(entry.currentEntranceDim);
                 if (outerWorld != null) {
-                    // Expand the bounding box slightly to catch face-centre portal origins at
-                    // the very edge of the entrance area.
+                    Set<UUID> outerIdSet = new java.util.HashSet<>(entry.outerPortalIds);
                     AABB outerBB = entry.getOuterAreaBox().toRealNumberBox().inflate(4);
                     outerWorld.getEntitiesOfClass(MiniScaledPortal.class, outerBB)
                         .stream()
-                        .filter(p -> p.boxId == entry.id && p.generation != expectedGeneration)
+                        .filter(p -> p.boxId == entry.id && !outerIdSet.contains(p.getUUID()))
                         .forEach(Entity::discard);
                 }
             }
 
-            if (voidWorld != null && entry.innerBoxPos != null) {
+            if (!entry.innerPortalIds.isEmpty() && voidWorld != null && entry.innerBoxPos != null) {
+                Set<UUID> innerIdSet = new java.util.HashSet<>(entry.innerPortalIds);
                 AABB innerBB = entry.getInnerAreaBox().toRealNumberBox().inflate(4);
                 voidWorld.getEntitiesOfClass(MiniScaledPortal.class, innerBB)
                     .stream()
-                    .filter(p -> p.boxId == entry.id && p.generation != expectedGeneration)
+                    .filter(p -> p.boxId == entry.id && !innerIdSet.contains(p.getUUID()))
                     .forEach(Entity::discard);
             }
         }
@@ -561,6 +585,9 @@ public class ScaleBoxGeneration {
         ScaleBoxRecord.Entry entry
     ) {
         ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
+        // Kill any previously-registered inner portals before creating new ones.
+        killPortalsByIds(entry.innerPortalIds, voidWorld);
+
         AABB innerAreaBox = entry.getInnerAreaBox().toRealNumberBox();
         Vec3 innerAreaBoxSize = Helper.getBoxSize(innerAreaBox);
         int boxId = entry.id;
@@ -588,6 +615,8 @@ public class ScaleBoxGeneration {
             portal.generation = generation;
             
             McHelper.spawnServerEntity(portal);
+            entry.innerPortalIds.add(portal.getUUID());
         }
+        ScaleBoxRecord.get().setDirty(true);
     }
 }
