@@ -37,16 +37,64 @@ import qouteall.q_misc_util.my_util.AARotation;
 import qouteall.q_misc_util.my_util.DQuaternion;
 import qouteall.q_misc_util.my_util.IntBox;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import net.minecraft.server.MinecraftServer;
+
 public class ScaleBoxGeneration {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScaleBoxGeneration.class);
-    
+
+    /**
+     * A portal UUID that needs to be killed once its chunk is loaded.
+     * Queued by {@link #killOuterPortalsForEntry} / {@link #killInnerPortalsForEntry}
+     * when {@link ServerLevel#getEntity(UUID)} returns {@code null} because the chunk
+     * holding the portal is not currently loaded.
+     */
+    private record PendingKill(ResourceKey<Level> worldKey, UUID uuid) {}
+
+    /** Portals to kill on the next successful chunk load. Not persisted across server restarts. */
+    private static final ArrayList<PendingKill> pendingPortalKills = new ArrayList<>();
+
+    /**
+     * Attempts to kill all portals in the pending-kill queue.
+     * Should be called every ~40 ticks (2 s). No-op when the queue is empty.
+     *
+     * <p>An entry is removed from the queue when either its dimension no longer exists
+     * (entity definitely gone) or the entity was found and discarded. Entries whose
+     * chunk is still unloaded are left in the queue for the next attempt.</p>
+     */
+    public static void tickPendingKills(MinecraftServer server) {
+        if (pendingPortalKills.isEmpty()) return;
+        Iterator<PendingKill> it = pendingPortalKills.iterator();
+        while (it.hasNext()) {
+            PendingKill pk = it.next();
+            ServerLevel world = server.getLevel(pk.worldKey());
+            if (world == null) {
+                // Dimension is gone — entity cannot exist.
+                it.remove();
+                continue;
+            }
+            Entity e = world.getEntity(pk.uuid());
+            if (e != null) {
+                e.discard();
+                it.remove();
+            }
+            // else: chunk not loaded yet — leave for next attempt.
+        }
+    }
+
+    /** Clears the pending-kill queue. Call on server start to discard stale entries. */
+    public static void clearPendingKills() {
+        pendingPortalKills.clear();
+    }
+
     public static final int[] supportedScales = {4, 8, 16, 32};
     
     public static void putScaleBoxIntoWorld(
@@ -385,14 +433,17 @@ public class ScaleBoxGeneration {
      */
     public static void killOuterPortalsForEntry(ScaleBoxRecord.Entry entry, @Nullable ServerLevel outerWorld) {
         if (outerWorld != null && entry.currentEntrancePos != null) {
-            // Primary: kill by UUID
+            // Primary: kill by UUID. If the chunk isn't loaded, queue for retry.
             for (UUID id : entry.outerPortalIds) {
                 Entity e = outerWorld.getEntity(id);
-                if (e != null) e.discard();
+                if (e != null) {
+                    e.discard();
+                } else {
+                    pendingPortalKills.add(new PendingKill(outerWorld.dimension(), id));
+                }
             }
-            // Fallback: spatial search in the entrance area for any matching boxId portals.
-            // Catches portals whose UUID lookup returned null (loaded-chunk race) and portals
-            // from entries created before UUID tracking was added.
+            // Spatial fallback for portals in currently-loaded chunks whose UUID reference
+            // was evicted, and for portals predating UUID tracking.
             AABB outerBB = entry.getOuterAreaBox().toRealNumberBox().inflate(4);
             outerWorld.getEntitiesOfClass(MiniScaledPortal.class, outerBB)
                 .stream()
@@ -411,13 +462,16 @@ public class ScaleBoxGeneration {
      */
     public static void killInnerPortalsForEntry(ScaleBoxRecord.Entry entry, @Nullable ServerLevel voidWorld) {
         if (voidWorld != null && entry.innerBoxPos != null) {
-            // Primary: kill by UUID
+            // Primary: kill by UUID. If the chunk isn't loaded, queue for retry.
             for (UUID id : entry.innerPortalIds) {
                 Entity e = voidWorld.getEntity(id);
-                if (e != null) e.discard();
+                if (e != null) {
+                    e.discard();
+                } else {
+                    pendingPortalKills.add(new PendingKill(voidWorld.dimension(), id));
+                }
             }
-            // Fallback: spatial search over the inner area to catch any portals that
-            // UUID lookup missed because the void chunks were not loaded at the time.
+            // Spatial fallback for portals in currently-loaded chunks.
             AABB innerBB = entry.getInnerAreaBox().toRealNumberBox().inflate(4);
             voidWorld.getEntitiesOfClass(MiniScaledPortal.class, innerBB)
                 .stream()

@@ -101,6 +101,12 @@ public class MiniScaledModInitializer {
             if (server != null) {
                 FallenEntityTeleportaion.teleportFallenEntities(server);
                 
+                // Retry killing portals whose chunks were not loaded when the kill was first
+                // requested. Runs every 40 ticks (~2 seconds). No-op when the queue is empty.
+                if (server.getTickCount() % 40 == 0) {
+                    ScaleBoxGeneration.tickPendingKills(server);
+                }
+
                 // Periodic portal reconciliation: removes any orphaned or stale portal entities.
                 // Runs every 100 ticks (~5 seconds) — cheap enough to be a background sweep.
                 if (server.getTickCount() % 100 == 0) {
@@ -143,6 +149,9 @@ public class MiniScaledModInitializer {
     }
     
     private void onServerStarted(ServerStartedEvent event) {
+        // Clear any stale pending kills from a previous session (static field survives
+        // hot-reloads in a running JVM).
+        ScaleBoxGeneration.clearPendingKills();
         MiniScaledConfig config = AutoConfig.getConfigHolder(MiniScaledConfig.class).getConfig();
         applyConfigServerSide(config);
     }
