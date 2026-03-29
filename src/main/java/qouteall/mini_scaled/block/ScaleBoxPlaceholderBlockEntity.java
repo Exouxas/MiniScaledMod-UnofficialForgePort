@@ -210,8 +210,8 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
         
         if (!blocksValid) {
             // Case 3: entrance actually destroyed.
-            // Kill the outer portals directly by UUID — entranceWorld is already resolved above.
-            ScaleBoxGeneration.killPortalsByIds(entry.outerPortalIds, entranceWorld);
+            // Kill the outer portals by UUID + spatial fallback.
+            ScaleBoxGeneration.killOuterPortalsForEntry(entry, entranceWorld);
 
             entry.currentEntranceDim = null;
             record.setDirty(true);

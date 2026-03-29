@@ -66,8 +66,8 @@ public class ScaleBoxGeneration {
         // Do this before updating the entry so we still know the old entrance dimension.
         ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
         ResourceKey<Level> oldDim = entry.currentEntranceDim;
-        killPortalsByIds(entry.outerPortalIds, oldDim != null ? McHelper.getServerWorld(oldDim) : null);
-        killPortalsByIds(entry.innerPortalIds, voidWorld);
+        killOuterPortalsForEntry(entry, oldDim != null ? McHelper.getServerWorld(oldDim) : null);
+        killInnerPortalsForEntry(entry, voidWorld);
 
         entry.currentEntranceDim = world.dimension();
         entry.currentEntrancePos = outerBoxBasePos;
@@ -350,9 +350,9 @@ public class ScaleBoxGeneration {
     }
 
     /**
-     * Kills portal entities identified by the given UUID list and clears the list.
-     * Entities in unloaded chunks are silently skipped — the portal's own generation
-     * tick will discard them once the chunk loads again.
+     * Kills portal entities identified by the given UUID list in the given world and clears the list.
+     * Only reaches entities in <em>loaded</em> chunks — the portal's own generation tick discards
+     * any that remain in unloaded chunks once they load.
      *
      * <p>The list is always cleared, even when {@code world} is {@code null} or entities
      * cannot be reached, so that the entry's UUID records stay consistent with intended state.</p>
@@ -369,6 +369,62 @@ public class ScaleBoxGeneration {
             }
             ids.clear();
         }
+    }
+
+    /**
+     * Kills all outer (entrance-side) portals for an entry using UUID lookup plus a
+     * spatial fallback search over the known outer entrance area.
+     *
+     * <p>The spatial fallback catches portals that are in currently-loaded chunks but whose
+     * UUIDs weren't reachable via {@link ServerLevel#getEntity(UUID)} (e.g. because the chunk
+     * had been unloaded since the portal was spawned, causing the entity manager to drop
+     * the live reference). Always clears {@link ScaleBoxRecord.Entry#outerPortalIds}.</p>
+     *
+     * <p>Must be called while {@code entry.currentEntranceDim}/{@code currentEntrancePos} still
+     * reflects the <em>old</em> placement — before overwriting those fields with new values.</p>
+     */
+    public static void killOuterPortalsForEntry(ScaleBoxRecord.Entry entry, @Nullable ServerLevel outerWorld) {
+        if (outerWorld != null && entry.currentEntrancePos != null) {
+            // Primary: kill by UUID
+            for (UUID id : entry.outerPortalIds) {
+                Entity e = outerWorld.getEntity(id);
+                if (e != null) e.discard();
+            }
+            // Fallback: spatial search in the entrance area for any matching boxId portals.
+            // Catches portals whose UUID lookup returned null (loaded-chunk race) and portals
+            // from entries created before UUID tracking was added.
+            AABB outerBB = entry.getOuterAreaBox().toRealNumberBox().inflate(4);
+            outerWorld.getEntitiesOfClass(MiniScaledPortal.class, outerBB)
+                .stream()
+                .filter(p -> p.boxId == entry.id)
+                .forEach(Entity::discard);
+        }
+        entry.outerPortalIds.clear();
+    }
+
+    /**
+     * Kills all inner (void-side) portals for an entry using UUID lookup plus a
+     * spatial fallback search over the known inner area box.
+     *
+     * <p>The inner area position never changes, so the spatial search is always valid.
+     * Always clears {@link ScaleBoxRecord.Entry#innerPortalIds}.</p>
+     */
+    public static void killInnerPortalsForEntry(ScaleBoxRecord.Entry entry, @Nullable ServerLevel voidWorld) {
+        if (voidWorld != null && entry.innerBoxPos != null) {
+            // Primary: kill by UUID
+            for (UUID id : entry.innerPortalIds) {
+                Entity e = voidWorld.getEntity(id);
+                if (e != null) e.discard();
+            }
+            // Fallback: spatial search over the inner area to catch any portals that
+            // UUID lookup missed because the void chunks were not loaded at the time.
+            AABB innerBB = entry.getInnerAreaBox().toRealNumberBox().inflate(4);
+            voidWorld.getEntitiesOfClass(MiniScaledPortal.class, innerBB)
+                .stream()
+                .filter(p -> p.boxId == entry.id)
+                .forEach(Entity::discard);
+        }
+        entry.innerPortalIds.clear();
     }
 
     /**
@@ -424,11 +480,11 @@ public class ScaleBoxGeneration {
     public static void resetPortalsForEntry(ScaleBoxRecord.Entry entry) {
         ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
 
-        // Kill all registered portals by UUID before re-creating.
+        // Kill all registered portals using UUID + spatial fallback before re-creating.
         ServerLevel outerWorld = entry.currentEntranceDim != null
             ? McHelper.getServerWorld(entry.currentEntranceDim) : null;
-        killPortalsByIds(entry.outerPortalIds, outerWorld);
-        killPortalsByIds(entry.innerPortalIds, voidWorld);
+        killOuterPortalsForEntry(entry, outerWorld);
+        killInnerPortalsForEntry(entry, voidWorld);
 
         entry.generation++;
         ScaleBoxRecord.get().setDirty(true);
@@ -523,7 +579,7 @@ public class ScaleBoxGeneration {
                             "reconcilePortals: scale box {} entrance blocks missing — clearing entrance",
                             entry.id
                         );
-                        killPortalsByIds(entry.outerPortalIds, outerWorld);
+                        killOuterPortalsForEntry(entry, outerWorld);
                         entry.currentEntranceDim = null;
                         entry.generation++;
                         record.setDirty(true);
@@ -585,8 +641,8 @@ public class ScaleBoxGeneration {
         ScaleBoxRecord.Entry entry
     ) {
         ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
-        // Kill any previously-registered inner portals before creating new ones.
-        killPortalsByIds(entry.innerPortalIds, voidWorld);
+        // Kill old inner portals (UUID + spatial fallback) then create new void-pointing ones.
+        killInnerPortalsForEntry(entry, voidWorld);
 
         AABB innerAreaBox = entry.getInnerAreaBox().toRealNumberBox();
         Vec3 innerAreaBoxSize = Helper.getBoxSize(innerAreaBox);
