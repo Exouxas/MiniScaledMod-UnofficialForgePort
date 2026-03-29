@@ -138,19 +138,22 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
     }
     
     /**
-     * there are 2 cases
-     * 1. placed the same entrance elsewhere, the old entrance should break
-     * in this case this integrity check will pass.
-     * the generation counter was already incremented and the old portals will break.
-     * in {@link ScaleBoxPlaceholderBlockEntity#checkValidity()} it will break the blocks.
-     * don't {@link ScaleBoxPlaceholderBlockEntity#notifyPortalBreak(int)} as it will break the new portals
-     * <br>
-     * 2. break the old entrance
-     * in this case this integrity check will fail.
-     * the generation counter will increment and the portal will break.
-     * in {@link ScaleBoxPlaceholderBlockEntity#checkValidity()} it will break the blocks.
-     * <br>
-     * Now, the outer portal breaks but the inner portal turns to point to the void underneath.
+     * Checks whether the portal for {@code boxId} should be removed, and if so,
+     * drives the full cleanup sequence.
+     *
+     * <p>There are three cases:</p>
+     * <ol>
+     *   <li><b>Entrance already unplaced</b> ({@code currentEntranceDim == null}): The box was
+     *       already cleaned up by an earlier call (e.g. a sibling placeholder block fired first).
+     *       Stale blocks self-clean via {@link #checkValidity()}.  We must <em>not</em> call
+     *       {@link #notifyPortalBreak} here — doing so would increment the generation again and
+     *       immediately invalidate the void-pointing inner portals that were just created.</li>
+     *   <li><b>Entrance placed elsewhere / integrity check passes</b>: The record already points
+     *       to the new location; leave it alone.  The stale blocks at the old location will clean
+     *       themselves up via {@link #checkValidity()}.</li>
+     *   <li><b>Entrance actually destroyed</b>: Block(s) are gone.  Increment the generation,
+     *       kill all old portals, and create void-pointing inner portals.</li>
+     * </ol>
      */
     public static void checkShouldRemovePortals(
         int boxId,
@@ -171,19 +174,34 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
         
         ResourceKey<Level> currentEntranceDim = entry.currentEntranceDim;
         if (currentEntranceDim == null) {
-            notifyPortalBreak(boxId);
+            // Case 1: entrance already unplaced.
+            // A previous placeholder block's onRemove already ran the full cleanup.
+            // Do NOT call notifyPortalBreak() — that would kill the freshly-created
+            // void-pointing inner portals by bumping the generation a second time.
             return;
         }
         
         ServerLevel entranceWorld = MiscHelper.getServer().getLevel(currentEntranceDim);
         if (entranceWorld == null) {
-            LOGGER.info("invalid entrance dim {}", currentEntranceDim);
-            entry.currentEntranceDim = Level.OVERWORLD;
+            // The entrance dimension no longer exists — treat as destroyed.
+            LOGGER.warn("Scale box {} entrance dimension {} is gone, clearing entrance", boxId, currentEntranceDim);
+            BlockPos lastPos = entry.currentEntrancePos;
+            entry.currentEntranceDim = null;
+            record.setDirty(true);
+            notifyPortalBreak(boxId);
+            ScaleBoxGeneration.killStalePortals(
+                boxId, entry.generation, currentEntranceDim, lastPos, entry
+            );
+            ScaleBoxGeneration.createInnerPortalsPointingToVoidUnderneath(entry);
             return;
         }
         
         boolean chunkLoaded = entranceWorld.hasChunkAt(entry.currentEntrancePos);
         if (!chunkLoaded) {
+            // Cannot verify block state right now.
+            // Outer portals handle themselves via checkStatus() every 2 ticks.
+            // If the chunk truly never loads again, the periodic reconcilePortals()
+            // sweep will eventually catch and clean up any orphaned portals.
             return;
         }
         
@@ -192,6 +210,7 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
         );
         
         if (!blocksValid) {
+            // Case 3: entrance actually destroyed.
             entry.currentEntranceDim = null;
             record.setDirty(true);
 
@@ -203,9 +222,7 @@ public class ScaleBoxPlaceholderBlockEntity extends BlockEntity {
                 boxId, entry.generation, currentEntranceDim, entry.currentEntrancePos, entry
             );
 
-            ScaleBoxGeneration.createInnerPortalsPointingToVoidUnderneath(
-                entry
-            );
+            ScaleBoxGeneration.createInnerPortalsPointingToVoidUnderneath(entry);
         }
     }
     

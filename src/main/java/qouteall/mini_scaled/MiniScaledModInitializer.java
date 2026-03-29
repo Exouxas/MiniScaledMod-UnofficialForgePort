@@ -100,6 +100,12 @@ public class MiniScaledModInitializer {
             net.minecraft.server.MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
             if (server != null) {
                 FallenEntityTeleportaion.teleportFallenEntities(server);
+                
+                // Periodic portal reconciliation: removes any orphaned or stale portal entities.
+                // Runs every 100 ticks (~5 seconds) — cheap enough to be a background sweep.
+                if (server.getTickCount() % 100 == 0) {
+                    ScaleBoxGeneration.reconcilePortals();
+                }
             }
         }
     }

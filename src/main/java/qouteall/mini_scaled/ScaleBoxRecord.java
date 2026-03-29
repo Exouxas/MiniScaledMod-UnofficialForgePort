@@ -93,6 +93,13 @@ public class ScaleBoxRecord extends SavedData {
         byOwner.computeIfAbsent(entry.ownerId, k -> new ObjectArrayList<>()).add(entry);
     }
     
+    /**
+     * Returns an unmodifiable view of all entries. Used by the portal reconciliation sweep.
+     */
+    public List<Entry> getAllEntries() {
+        return Collections.unmodifiableList(entries);
+    }
+    
     // does not allow removing entry
     
     public int allocateId() {

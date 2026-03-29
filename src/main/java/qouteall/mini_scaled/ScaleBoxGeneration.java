@@ -442,6 +442,102 @@ public class ScaleBoxGeneration {
         }
     }
 
+    /**
+     * Periodic safety sweep called from the server tick (every ~100 ticks).
+     *
+     * <p>For every {@link ScaleBoxRecord.Entry} this method:</p>
+     * <ol>
+     *   <li>Verifies the entrance blocks still exist when the chunk is loaded.
+     *       If they are gone (or the dimension has disappeared), it drives the same
+     *       cleanup that {@link qouteall.mini_scaled.block.ScaleBoxPlaceholderBlockEntity#checkShouldRemovePortals}
+     *       would perform.</li>
+     *   <li>Discards any {@link MiniScaledPortal} entities whose {@code generation}
+     *       doesn't match the entry's current generation — these are orphaned portals
+     *       left behind by a previous placement that wasn't cleaned up in time.</li>
+     * </ol>
+     *
+     * <p>This method intentionally does <em>not</em> create portals; portal creation
+     * is performed by the explicit placement flow ({@link #putScaleBoxIntoWorld} and
+     * {@link #createInnerPortalsPointingToVoidUnderneath}).  The reconciler is a pure
+     * defensive sweep: it only removes what shouldn't be there.</p>
+     */
+    public static void reconcilePortals() {
+        ScaleBoxRecord record = ScaleBoxRecord.get();
+        ServerLevel voidWorld = VoidDimension.getVoidServerWorld();
+
+        for (ScaleBoxRecord.Entry entry : record.getAllEntries()) {
+            // --- Step 1: verify placement state matches reality ---
+            if (entry.currentEntranceDim != null && entry.currentEntrancePos != null) {
+                ServerLevel outerWorld = McHelper.getServerWorld(entry.currentEntranceDim);
+                if (outerWorld == null) {
+                    // Entrance dimension no longer exists.
+                    LOGGER.warn(
+                        "reconcilePortals: scale box {} entrance dim {} is gone — clearing entrance",
+                        entry.id, entry.currentEntranceDim
+                    );
+                    ResourceKey<Level> oldDim = entry.currentEntranceDim;
+                    BlockPos oldPos = entry.currentEntrancePos;
+                    entry.currentEntranceDim = null;
+                    record.setDirty(true);
+                    entry.generation++;
+                    killStalePortals(entry.id, entry.generation, oldDim, oldPos, entry);
+                    if (voidWorld != null) {
+                        createInnerPortalsPointingToVoidUnderneath(entry);
+                    }
+                    continue;
+                }
+
+                // Only inspect blocks when the chunk is already loaded — avoid forcing a load.
+                if (outerWorld.hasChunkAt(entry.currentEntrancePos)) {
+                    boolean blocksValid = entry.getOuterAreaBox().stream().allMatch(
+                        pos -> outerWorld.getBlockState(pos).getBlock()
+                            == qouteall.mini_scaled.block.ScaleBoxPlaceholderBlock.instance
+                    );
+                    if (!blocksValid) {
+                        LOGGER.warn(
+                            "reconcilePortals: scale box {} entrance blocks missing — clearing entrance",
+                            entry.id
+                        );
+                        ResourceKey<Level> oldDim = entry.currentEntranceDim;
+                        BlockPos oldPos = entry.currentEntrancePos;
+                        entry.currentEntranceDim = null;
+                        record.setDirty(true);
+                        entry.generation++;
+                        killStalePortals(entry.id, entry.generation, oldDim, oldPos, entry);
+                        if (voidWorld != null) {
+                            createInnerPortalsPointingToVoidUnderneath(entry);
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            // --- Step 2: kill portals with a stale generation ---
+            int expectedGeneration = entry.generation;
+
+            if (entry.currentEntranceDim != null && entry.currentEntrancePos != null) {
+                ServerLevel outerWorld = McHelper.getServerWorld(entry.currentEntranceDim);
+                if (outerWorld != null) {
+                    // Expand the bounding box slightly to catch face-centre portal origins at
+                    // the very edge of the entrance area.
+                    AABB outerBB = entry.getOuterAreaBox().toRealNumberBox().inflate(4);
+                    outerWorld.getEntitiesOfClass(MiniScaledPortal.class, outerBB)
+                        .stream()
+                        .filter(p -> p.boxId == entry.id && p.generation != expectedGeneration)
+                        .forEach(Entity::discard);
+                }
+            }
+
+            if (voidWorld != null && entry.innerBoxPos != null) {
+                AABB innerBB = entry.getInnerAreaBox().toRealNumberBox().inflate(4);
+                voidWorld.getEntitiesOfClass(MiniScaledPortal.class, innerBB)
+                    .stream()
+                    .filter(p -> p.boxId == entry.id && p.generation != expectedGeneration)
+                    .forEach(Entity::discard);
+            }
+        }
+    }
+
     // will set dirty
     public static void updateScaleBoxPortals(
         ScaleBoxRecord.Entry entry,
