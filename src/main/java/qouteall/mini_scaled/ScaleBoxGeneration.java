@@ -150,7 +150,7 @@ public class ScaleBoxGeneration {
             portal.recordEntry = entry;
             
             McHelper.spawnServerEntity(portal);
-            entry.outerPortalIds.add(portal.getUUID());
+            entry.outerPortalIds.add(((Entity) portal).getUUID());
             
             MiniScaledPortal reversePortal =
                 PortalManipulation.createReversePortal(portal, MiniScaledPortal.entityType);
@@ -174,7 +174,7 @@ public class ScaleBoxGeneration {
             reversePortal.doRenderPlayer = false;
             
             McHelper.spawnServerEntity(reversePortal);
-            entry.innerPortalIds.add(reversePortal.getUUID());
+            entry.innerPortalIds.add(((Entity) reversePortal).getUUID());
         }
         ScaleBoxRecord.get().setDirty(true);
     }
@@ -546,7 +546,7 @@ public class ScaleBoxGeneration {
                     AABB outerBB = entry.getOuterAreaBox().toRealNumberBox().inflate(4);
                     outerWorld.getEntitiesOfClass(MiniScaledPortal.class, outerBB)
                         .stream()
-                        .filter(p -> p.boxId == entry.id && !outerIdSet.contains(p.getUUID()))
+                        .filter(p -> p.boxId == entry.id && !outerIdSet.contains(((Entity) p).getUUID()))
                         .forEach(Entity::discard);
                 }
             }
@@ -556,7 +556,7 @@ public class ScaleBoxGeneration {
                 AABB innerBB = entry.getInnerAreaBox().toRealNumberBox().inflate(4);
                 voidWorld.getEntitiesOfClass(MiniScaledPortal.class, innerBB)
                     .stream()
-                    .filter(p -> p.boxId == entry.id && !innerIdSet.contains(p.getUUID()))
+                    .filter(p -> p.boxId == entry.id && !innerIdSet.contains(((Entity) p).getUUID()))
                     .forEach(Entity::discard);
             }
         }
@@ -615,7 +615,7 @@ public class ScaleBoxGeneration {
             portal.generation = generation;
             
             McHelper.spawnServerEntity(portal);
-            entry.innerPortalIds.add(portal.getUUID());
+            entry.innerPortalIds.add(((Entity) portal).getUUID());
         }
         ScaleBoxRecord.get().setDirty(true);
     }
